@@ -82,7 +82,7 @@ static inline void prv_SetCD(uint8_t cd)
 static inline void prv_LatchRow(void)
 {
     /* Blank the display while we latch to avoid row-ghosting                */
-    //HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);   /* OE off  */
+    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);   /* OE off  */
 
     HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_SET);   /* LAT hi  */
     /* Minimum LAT pulse width is typically ≥20 ns; at 250 MHz one __NOP()   *
@@ -277,9 +277,13 @@ HAL_StatusTypeDef HUB75_Refresh(void)
             /* ── OSPI: clock out all pixels for this row-pair ─────────── */
             status = prv_OSPISendRow(s_framebuf[row_pair]);
             if (status != HAL_OK)
+            {
+            	 HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
+            	 HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_SET);
                 return status;
-
-            prv_LatchRow();
+            }
+       	 HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
+       	 HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
 
             //HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);
 
@@ -293,6 +297,8 @@ HAL_StatusTypeDef HUB75_Refresh(void)
         }
         /* C,D will be updated at the top of the next cd iteration          */
     }
+    prv_LatchRow();
+    HAL_Delay(160);
     //HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);
     //HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);
     return HAL_OK;
