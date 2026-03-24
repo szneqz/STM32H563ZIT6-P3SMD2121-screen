@@ -92,8 +92,6 @@ void Error_Handler(void);
 #define RMII_RXD0_GPIO_Port GPIOC
 #define RMII_RXD1_Pin GPIO_PIN_5
 #define RMII_RXD1_GPIO_Port GPIOC
-#define DISPLAY_OE_Pin GPIO_PIN_9
-#define DISPLAY_OE_GPIO_Port GPIOE
 #define UCPD_CC1_Pin GPIO_PIN_13
 #define UCPD_CC1_GPIO_Port GPIOB
 #define UCPD_CC2_Pin GPIO_PIN_14
@@ -118,6 +116,8 @@ void Error_Handler(void);
 #define SWCLK_GPIO_Port GPIOA
 #define T_JTDI_Pin GPIO_PIN_15
 #define T_JTDI_GPIO_Port GPIOA
+#define DISPLAY_OE_Pin GPIO_PIN_0
+#define DISPLAY_OE_GPIO_Port GPIOD
 #define GAMEPAD_0_Pin GPIO_PIN_2
 #define GAMEPAD_0_GPIO_Port GPIOD
 #define GAMEPAD_3_Pin GPIO_PIN_5

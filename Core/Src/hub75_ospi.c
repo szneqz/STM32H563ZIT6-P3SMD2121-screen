@@ -251,55 +251,48 @@ void HUB75_Clear(void)
  */
 HAL_StatusTypeDef HUB75_Refresh(void)
 {
-	//HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);
-	//HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_SET);
-    HAL_StatusTypeDef status = HAL_OK;
+	HAL_StatusTypeDef status = HAL_OK;
 
-    /*
-     * ── Outer loop: 4 C,D values  (address bits [3:2] via GPIO) ──────────
-     * Each iteration represents one "OSPI transfer group".
-     */
-    for (uint8_t cd = 0; cd < 4u; cd++)
-    {
-        /* ── GPIO: set the two address lines that OctoSPI cannot drive ──── */
-        prv_SetCD(cd);
+	/*
+	 * ── Outer loop: 4 C,D values  (address bits [3:2] via GPIO) ──────────
+	 * Each iteration represents one "OSPI transfer group".
+	 */
+	for (uint8_t cd = 0; cd < 4u; cd++)
+	{
+		/* ── GPIO: set the two address lines that OctoSPI cannot drive ──── */
+		prv_SetCD(cd);
 
-        /*
-         * ── Inner loop: 4 A,B values  (address bits [1:0] via OctoSPI) ──
-         * Each iteration is one HAL_XSPI_Transmit() call for PANEL_WIDTH bytes.
-         * A and B are baked into bits [7:6] of every byte in the row, so the
-         * panel latches the correct row address together with the pixel data.
-         */
-        for (uint8_t ab = 0; ab < 4u; ab++)
-        {
-            uint8_t row_pair = (uint8_t)((cd << 2u) | ab);
+		/*
+		 * ── Inner loop: 4 A,B values  (address bits [1:0] via OctoSPI) ──
+		 * Each iteration is one HAL_XSPI_Transmit() call for PANEL_WIDTH bytes.
+		 * A and B are baked into bits [7:6] of every byte in the row, so the
+		 * panel latches the correct row address together with the pixel data.
+		 */
+		for (uint8_t ab = 0; ab < 4u; ab++)
+		{
+			uint8_t row_pair = (uint8_t)((cd << 2u) | ab);
 
-            /* ── OSPI: clock out all pixels for this row-pair ─────────── */
-            status = prv_OSPISendRow(s_framebuf[row_pair]);
-            if (status != HAL_OK)
-            {
-            	 HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
-            	 HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_SET);
-                return status;
-            }
-       	 HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
-       	 HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
+			/* ── OSPI: clock out all pixels for this row-pair ─────────── */
+			status = prv_OSPISendRow(s_framebuf[row_pair]);
+			if (status != HAL_OK)
+			{
+				HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_SET);
+				return status;
+			}
+			HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
+			HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
 
-            //HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);
+			/* ── GPIO: latch row data into the panel shift registers ───── */
 
-            /* ── GPIO: latch row data into the panel shift registers ───── */
-
-            /*
-             * Optional: insert a small OE-enable window here for BCM/PWM
-             * brightness control.  For binary (1-bit) colour the LatchRow()
-             * already re-enables OE unconditionally.
-             */
-        }
-        /* C,D will be updated at the top of the next cd iteration          */
-    }
-    prv_LatchRow();
-    //HAL_Delay(160);
-    //HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);
-    //HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);
-    return HAL_OK;
+			/*
+			 * Optional: insert a small OE-enable window here for BCM/PWM
+			 * brightness control.  For binary (1-bit) colour the LatchRow()
+			 * already re-enables OE unconditionally.
+			 */
+		}
+		/* C,D will be updated at the top of the next cd iteration          */
+	}
+	prv_LatchRow();
+	return HAL_OK;
 }

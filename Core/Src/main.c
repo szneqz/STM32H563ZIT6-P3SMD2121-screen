@@ -141,16 +141,25 @@ int main(void)
       {
     	  for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT / 2; row++)
     	  {
-    		  if((row % 3) == 0)
-    			  HUB75_SetPixel(row, col, 1, 0, 0);   /* red   */
-    		  if((row % 3) == 1)
-    			  HUB75_SetPixel(row, col, 0, 1, 0);   /* green   */
-    		  if((row % 3) == 2)
-    			  HUB75_SetPixel(row, col, 0, 0, 1);   /* blue   */
+    		  if (row == col)
+    		  {
+				  if((row % 3) == 0)
+					  HUB75_SetPixel(row, col, 1, 0, 0);   /* red   */
+				  if((row % 3) == 1)
+					  HUB75_SetPixel(row, col, 0, 1, 0);   /* green   */
+				  if((row % 3) == 2)
+					  HUB75_SetPixel(row, col, 0, 0, 1);   /* blue   */
+    		  }
 
     	  }
+
     	  for (uint16_t row = HUB75_PANEL_HEIGHT / 2; row < HUB75_PANEL_HEIGHT; row++)
-    		  HUB75_SetPixel(row, col, 0, 0, 1);   /* blue  */
+    	  {
+    		  if (col == 18)
+    		  {
+				  HUB75_SetPixel(row, col, 0, 1, 0);   /* green  */
+    		  }
+    	  }
       }
 
       HUB75_Refresh();
@@ -161,12 +170,19 @@ int main(void)
 	  //HAL_GPIO_WritePin(DISPLAY_OE_GPIO_Port, DISPLAY_OE_Pin, GPIO_PIN_RESET);
 	  //HAL_GPIO_WritePin(DISPLAY_LATCH_GPIO_Port, DISPLAY_LATCH_Pin, GPIO_PIN_SET);
 	  //HAL_GPIO_WritePin(DISPLAY_LATCH_GPIO_Port, DISPLAY_LATCH_Pin, GPIO_PIN_RESET);
-	  GPIO_PinState state =  HAL_GPIO_ReadPin(DISPLAY_OE_GPIO_Port, DISPLAY_OE_Pin);
-	  printf("STATE IS %d\n", state);
+	  //GPIO_PinState state =  HAL_GPIO_ReadPin(DISPLAY_OE_GPIO_Port, DISPLAY_OE_Pin);
+	  //printf("STATE IS %d\n", state);
       if(HAL_GPIO_ReadPin(BUTTON_USER_GPIO_PORT, BUTTON_USER_PIN))
       {
           HUB75_Refresh();
       }
+      //else
+      //{
+    	  //HAL_GPIO_WritePin(DISPLAY_OE_GPIO_Port, DISPLAY_OE_Pin, GPIO_PIN_RESET);
+    	  //HAL_GPIO_WritePin(DISPLAY_LATCH_GPIO_Port, DISPLAY_LATCH_Pin, GPIO_PIN_SET);
+    	  //HAL_GPIO_WritePin(DISPLAY_C_GPIO_Port, DISPLAY_C_Pin, GPIO_PIN_RESET);
+    	  //HAL_GPIO_WritePin(DISPLAY_D_GPIO_Port, DISPLAY_D_Pin, GPIO_PIN_RESET);
+      //}
       //HUB75_Refresh();
     /* USER CODE END WHILE */
 
@@ -415,13 +431,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(VBUS_SENSE_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : DISPLAY_OE_Pin */
-  GPIO_InitStruct.Pin = DISPLAY_OE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
-  HAL_GPIO_Init(DISPLAY_OE_GPIO_Port, &GPIO_InitStruct);
-
   /*Configure GPIO pins : UCPD_CC1_Pin UCPD_CC2_Pin */
   GPIO_InitStruct.Pin = UCPD_CC1_Pin|UCPD_CC2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
@@ -455,6 +464,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   GPIO_InitStruct.Alternate = GPIO_AF10_USB;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DISPLAY_OE_Pin */
+  GPIO_InitStruct.Pin = DISPLAY_OE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  HAL_GPIO_Init(DISPLAY_OE_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : GAMEPAD_0_Pin GAMEPAD_3_Pin GAMEPAD_4_Pin GAMEPAD_5_Pin */
   GPIO_InitStruct.Pin = GAMEPAD_0_Pin|GAMEPAD_3_Pin|GAMEPAD_4_Pin|GAMEPAD_5_Pin;
