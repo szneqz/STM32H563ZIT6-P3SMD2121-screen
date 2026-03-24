@@ -82,13 +82,13 @@ static inline void prv_SetCD(uint8_t cd)
 static inline void prv_LatchRow(void)
 {
     /* Blank the display while we latch to avoid row-ghosting                */
-    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);   /* OE off  */
+    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);   /* OE off  */
 
     HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_SET);   /* LAT hi  */
     /* Minimum LAT pulse width is typically ≥20 ns; at 250 MHz one __NOP()   *
      * ≈ 4 ns — four NOPs ≈ 16 ns.  Add more if your panel requires it.      */
-    __NOP();__NOP();__NOP();__NOP();
-    //HAL_Delay(1);
+    //__NOP();__NOP();__NOP();__NOP();
+    HAL_Delay(2);
     HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);   /* LAT lo  */
 
     HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET); /* OE on   */
@@ -298,7 +298,7 @@ HAL_StatusTypeDef HUB75_Refresh(void)
         /* C,D will be updated at the top of the next cd iteration          */
     }
     prv_LatchRow();
-    HAL_Delay(160);
+    //HAL_Delay(160);
     //HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);
     //HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);
     return HAL_OK;

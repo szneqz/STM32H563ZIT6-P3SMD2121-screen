@@ -139,18 +139,18 @@ int main(void)
       /* Solid red top half, solid blue bottom half */
       for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
       {
-          for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT / 2; row++)
-          {
-        	  if(row % 3 == 0)
-        		  HUB75_SetPixel(row, col, 1, 0, 0);   /* red   */
-			  if(row % 3 == 1)
-				  HUB75_SetPixel(row, col, 0, 1, 0);   /* green   */
-			  if(row % 3 == 2)
-				  HUB75_SetPixel(row, col, 0, 0, 1);   /* blue   */
+    	  for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT / 2; row++)
+    	  {
+    		  if((row % 3) == 0)
+    			  HUB75_SetPixel(row, col, 1, 0, 0);   /* red   */
+    		  if((row % 3) == 1)
+    			  HUB75_SetPixel(row, col, 0, 1, 0);   /* green   */
+    		  if((row % 3) == 2)
+    			  HUB75_SetPixel(row, col, 0, 0, 1);   /* blue   */
 
-          }
-          for (uint16_t row = HUB75_PANEL_HEIGHT / 2; row < HUB75_PANEL_HEIGHT; row++)
-              HUB75_SetPixel(row, col, 0, 0, 1);   /* blue  */
+    	  }
+    	  for (uint16_t row = HUB75_PANEL_HEIGHT / 2; row < HUB75_PANEL_HEIGHT; row++)
+    		  HUB75_SetPixel(row, col, 0, 0, 1);   /* blue  */
       }
 
       HUB75_Refresh();
@@ -161,8 +161,8 @@ int main(void)
 	  //HAL_GPIO_WritePin(DISPLAY_OE_GPIO_Port, DISPLAY_OE_Pin, GPIO_PIN_RESET);
 	  //HAL_GPIO_WritePin(DISPLAY_LATCH_GPIO_Port, DISPLAY_LATCH_Pin, GPIO_PIN_SET);
 	  //HAL_GPIO_WritePin(DISPLAY_LATCH_GPIO_Port, DISPLAY_LATCH_Pin, GPIO_PIN_RESET);
-	  //GPIO_PinState state =  HAL_GPIO_ReadPin(DISPLAY_OE_GPIO_Port, DISPLAY_OE_Pin);
-	  //printf("%d\n", state);
+	  GPIO_PinState state =  HAL_GPIO_ReadPin(DISPLAY_OE_GPIO_Port, DISPLAY_OE_Pin);
+	  printf("STATE IS %d\n", state);
       if(HAL_GPIO_ReadPin(BUTTON_USER_GPIO_PORT, BUTTON_USER_PIN))
       {
           HUB75_Refresh();
@@ -388,9 +388,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : DISPLAY_C_Pin DISPLAY_D_Pin DISPLAY_LATCH_Pin */
   GPIO_InitStruct.Pin = DISPLAY_C_Pin|DISPLAY_D_Pin|DISPLAY_LATCH_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pins : RMII_MDC_Pin RMII_RXD0_Pin RMII_RXD1_Pin */
@@ -417,9 +417,9 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : DISPLAY_OE_Pin */
   GPIO_InitStruct.Pin = DISPLAY_OE_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(DISPLAY_OE_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : UCPD_CC1_Pin UCPD_CC2_Pin */
