@@ -67,32 +67,18 @@ static uint8_t s_framebuf[HUB75_ROW_PAIRS][HUB75_PANEL_WIDTH];
  * @brief  Drive GPIO address lines C and D.
  * @param  cd  2-bit value: bit0 → C, bit1 → D
  */
-static inline void prv_SetCD(uint8_t cd)
+static inline void prv_SetABCD(uint8_t abcd)
 {
+    HAL_GPIO_WritePin(HUB75_A_PORT, HUB75_A_PIN,
+                      (abcd & 0x01u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(HUB75_B_PORT, HUB75_B_PIN,
+                      (abcd & 0x02u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
     HAL_GPIO_WritePin(HUB75_C_PORT, HUB75_C_PIN,
-                      (cd & 0x01u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                      (abcd & 0x04u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
     HAL_GPIO_WritePin(HUB75_D_PORT, HUB75_D_PIN,
-                      (cd & 0x02u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
+                      (abcd & 0x08u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
-/**
- * @brief  Latch a completed row: disable OE → assert LAT → release LAT → enable OE.
- *         The OE blanking prevents display glitches (ghosting) during latching.
- */
-static inline void prv_LatchRow(void)
-{
-    /* Blank the display while we latch to avoid row-ghosting                */
-    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);   /* OE off  */
-
-    HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_SET);   /* LAT hi  */
-    /* Minimum LAT pulse width is typically ≥20 ns; at 250 MHz one __NOP()   *
-     * ≈ 4 ns — four NOPs ≈ 16 ns.  Add more if your panel requires it.      */
-    //__NOP();__NOP();__NOP();__NOP();
-    HAL_Delay(2);
-    HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);   /* LAT lo  */
-
-    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET); /* OE on   */
-}
 
 /**
  * @brief  Send one row's pixels over OctoSPI (indirect-write, 8 simultaneous lines).
@@ -170,9 +156,7 @@ void HUB75_Init(XSPI_HandleTypeDef *hospi)
     s_hospi = hospi;
 
     /* Ensure display blanked and latch de-asserted at startup               */
-    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);   /* OE off  */
-    HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);
-    prv_SetCD(0u);
+    prv_SetABCD(0u);
 
     HUB75_Clear();
 }
@@ -207,8 +191,12 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
     }
 
     /* Re-bake A,B address into bits [7:6]                                   */
-    uint8_t ab = row_pair & 0x03u;
-    byte = (byte & 0x3Fu) | (uint8_t)(ab << 6u);
+    uint8_t LATCH_OE = 0b11;
+    //if (col > (HUB75_PANEL_WIDTH / 2))
+    //{
+    //	LATCH_OE = 0b00;
+    //}
+    byte = (byte & 0x3Fu) | (uint8_t)(LATCH_OE << 6u);
 
     s_framebuf[row_pair][col] = byte;
 }
@@ -257,23 +245,13 @@ HAL_StatusTypeDef HUB75_Refresh(void)
 	 * ── Outer loop: 4 C,D values  (address bits [3:2] via GPIO) ──────────
 	 * Each iteration represents one "OSPI transfer group".
 	 */
-	for (uint8_t cd = 0; cd < 4u; cd++)
+	for (uint8_t abcd = 0; abcd < 16u; abcd++)
 	{
 		/* ── GPIO: set the two address lines that OctoSPI cannot drive ──── */
-		prv_SetCD(cd);
-
-		/*
-		 * ── Inner loop: 4 A,B values  (address bits [1:0] via OctoSPI) ──
-		 * Each iteration is one HAL_XSPI_Transmit() call for PANEL_WIDTH bytes.
-		 * A and B are baked into bits [7:6] of every byte in the row, so the
-		 * panel latches the correct row address together with the pixel data.
-		 */
-		for (uint8_t ab = 0; ab < 4u; ab++)
-		{
-			uint8_t row_pair = (uint8_t)((cd << 2u) | ab);
+		prv_SetABCD(abcd);
 
 			/* ── OSPI: clock out all pixels for this row-pair ─────────── */
-			status = prv_OSPISendRow(s_framebuf[row_pair]);
+			status = prv_OSPISendRow(s_framebuf[abcd]);
 			if (status != HAL_OK)
 			{
 				HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
@@ -283,16 +261,15 @@ HAL_StatusTypeDef HUB75_Refresh(void)
 			HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
 			HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
 
-			/* ── GPIO: latch row data into the panel shift registers ───── */
 
 			/*
 			 * Optional: insert a small OE-enable window here for BCM/PWM
 			 * brightness control.  For binary (1-bit) colour the LatchRow()
 			 * already re-enables OE unconditionally.
 			 */
-		}
 		/* C,D will be updated at the top of the next cd iteration          */
+			//HAL_Delay(200);
 	}
-	prv_LatchRow();
+	prv_SetABCD(0b0000);
 	return HAL_OK;
 }

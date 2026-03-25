@@ -62,18 +62,17 @@ extern "C" {
 /* ── GPIO: row address bits C and D ───────────────────────────────────────
  * These are the two address bits NOT carried by OctoSPI.
  * Adjust PORT / PIN to your actual wiring.                                 */
+#define HUB75_A_PORT        DISPLAY_A_GPIO_Port
+#define HUB75_A_PIN         DISPLAY_A_Pin
+
+#define HUB75_B_PORT        DISPLAY_B_GPIO_Port
+#define HUB75_B_PIN         DISPLAY_B_Pin
+
 #define HUB75_C_PORT        DISPLAY_C_GPIO_Port
 #define HUB75_C_PIN         DISPLAY_C_Pin
 
 #define HUB75_D_PORT        DISPLAY_D_GPIO_Port
 #define HUB75_D_PIN         DISPLAY_D_Pin
-
-/* ── GPIO: control signals ────────────────────────────────────────────────*/
-#define HUB75_LAT_PORT      DISPLAY_LATCH_GPIO_Port
-#define HUB75_LAT_PIN       DISPLAY_LATCH_Pin
-
-#define HUB75_OE_PORT       DISPLAY_OE_GPIO_Port
-#define HUB75_OE_PIN        DISPLAY_OE_Pin   /* active-low: SET = disabled     */
 
 /* ── Public API ───────────────────────────────────────────────────────────*/
 

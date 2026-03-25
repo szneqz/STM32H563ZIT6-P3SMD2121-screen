@@ -74,8 +74,8 @@ void Error_Handler(void);
 #define DISPLAY_C_GPIO_Port GPIOF
 #define DISPLAY_D_Pin GPIO_PIN_1
 #define DISPLAY_D_GPIO_Port GPIOF
-#define DISPLAY_LATCH_Pin GPIO_PIN_2
-#define DISPLAY_LATCH_GPIO_Port GPIOF
+#define DISPLAY_A_Pin GPIO_PIN_2
+#define DISPLAY_A_GPIO_Port GPIOF
 #define STLK_MCO_Pin GPIO_PIN_0
 #define STLK_MCO_GPIO_Port GPIOH
 #define RMII_MDC_Pin GPIO_PIN_1
@@ -116,8 +116,8 @@ void Error_Handler(void);
 #define SWCLK_GPIO_Port GPIOA
 #define T_JTDI_Pin GPIO_PIN_15
 #define T_JTDI_GPIO_Port GPIOA
-#define DISPLAY_OE_Pin GPIO_PIN_0
-#define DISPLAY_OE_GPIO_Port GPIOD
+#define DISPLAY_B_Pin GPIO_PIN_0
+#define DISPLAY_B_GPIO_Port GPIOD
 #define GAMEPAD_0_Pin GPIO_PIN_2
 #define GAMEPAD_0_GPIO_Port GPIOD
 #define GAMEPAD_3_Pin GPIO_PIN_5
