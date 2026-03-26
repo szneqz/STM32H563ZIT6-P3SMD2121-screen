@@ -55,11 +55,11 @@ extern "C" {
 
 /* ── Panel geometry ────────────────────────────────────────────────────────
  * Change these to match your physical panel.                               */
-#define HUB75_PANEL_WIDTH   64u   /* pixels per row                        */
+#define HUB75_PANEL_WIDTH   128u   /* pixels per row                        */
 #define HUB75_PANEL_HEIGHT  32u   /* total rows  (must be 2 × ROW_PAIRS)   */
 #define HUB75_ROW_PAIRS     (HUB75_PANEL_HEIGHT / 2u)   /* = 16            */
 
-/* ── GPIO: row address bits C and D ───────────────────────────────────────
+/* ── GPIO: row address bits A, B, C and D ───────────────────────────────────────
  * These are the two address bits NOT carried by OctoSPI.
  * Adjust PORT / PIN to your actual wiring.                                 */
 #define HUB75_A_PORT        DISPLAY_A_GPIO_Port
@@ -73,6 +73,13 @@ extern "C" {
 
 #define HUB75_D_PORT        DISPLAY_D_GPIO_Port
 #define HUB75_D_PIN         DISPLAY_D_Pin
+
+/* ── GPIO: control signals ────────────────────────────────────────────────*/
+#define HUB75_LAT_PORT      DISPLAY_LATCH_GPIO_Port
+#define HUB75_LAT_PIN       DISPLAY_LATCH_Pin
+
+#define HUB75_OE_PORT       DISPLAY_OE_GPIO_Port
+#define HUB75_OE_PIN        DISPLAY_OE_Pin   /* active-low: SET = disabled     */
 
 /* ── Public API ───────────────────────────────────────────────────────────*/
 

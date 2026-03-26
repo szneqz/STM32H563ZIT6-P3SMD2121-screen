@@ -79,6 +79,27 @@ static inline void prv_SetABCD(uint8_t abcd)
                       (abcd & 0x08u) ? GPIO_PIN_SET : GPIO_PIN_RESET);
 }
 
+/**
+ * @brief  Latch a completed row: disable OE → assert LAT → release LAT → enable OE.
+ *         The OE blanking prevents display glitches (ghosting) during latching.
+ */
+static inline void prv_LatchRow(void)
+{
+    /* Blank the display while we latch to avoid row-ghosting                */
+    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);   /* OE off  */
+
+    HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_SET);   /* LAT hi  */
+    /* Minimum LAT pulse width is typically ≥20 ns; at 250 MHz one __NOP()   *
+     * ≈ 4 ns — four NOPs ≈ 16 ns.  Add more if your panel requires it.      */
+    for (int i = 0; i < 8; i++)
+    {
+    	__NOP();
+    }
+    //HAL_Delay(1);
+    HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);   /* LAT lo  */
+
+    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET); /* OE on   */
+}
 
 /**
  * @brief  Send one row's pixels over OctoSPI (indirect-write, 8 simultaneous lines).
@@ -191,12 +212,12 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
     }
 
     /* Re-bake A,B address into bits [7:6]                                   */
-    uint8_t LATCH_OE = 0b11;
-    //if (col > (HUB75_PANEL_WIDTH / 2))
+    //uint8_t LATCH_OE = 0b10;
+    //if (col > (62))
     //{
-    //	LATCH_OE = 0b00;
+    //	LATCH_OE = 0b01;
     //}
-    byte = (byte & 0x3Fu) | (uint8_t)(LATCH_OE << 6u);
+    byte = (byte & 0x3Fu); //| (uint8_t)(LATCH_OE << 6u);
 
     s_framebuf[row_pair][col] = byte;
 }
@@ -247,9 +268,6 @@ HAL_StatusTypeDef HUB75_Refresh(void)
 	 */
 	for (uint8_t abcd = 0; abcd < 16u; abcd++)
 	{
-		/* ── GPIO: set the two address lines that OctoSPI cannot drive ──── */
-		prv_SetABCD(abcd);
-
 			/* ── OSPI: clock out all pixels for this row-pair ─────────── */
 			status = prv_OSPISendRow(s_framebuf[abcd]);
 			if (status != HAL_OK)
@@ -261,6 +279,10 @@ HAL_StatusTypeDef HUB75_Refresh(void)
 			HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
 			HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
 
+			prv_LatchRow();
+
+			/* ── GPIO: set the two address lines that OctoSPI cannot drive ──── */
+			prv_SetABCD(abcd);
 
 			/*
 			 * Optional: insert a small OE-enable window here for BCM/PWM
@@ -270,6 +292,7 @@ HAL_StatusTypeDef HUB75_Refresh(void)
 		/* C,D will be updated at the top of the next cd iteration          */
 			//HAL_Delay(200);
 	}
-	prv_SetABCD(0b0000);
+	//prv_SetABCD(0b0000);
+	//HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);   /* OE off  */
 	return HAL_OK;
 }
