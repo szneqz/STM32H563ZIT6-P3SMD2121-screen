@@ -131,33 +131,41 @@ int main(void)
   HAL_GPIO_WritePin(LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_SET);
 
-  /* 3 ── HUB75 driver init ───────────────────────────────────────────── */
+  /* HUB75 driver init */
   HUB75_Init(&hxspi1);
 
-  /* 4 ── Draw something into the framebuffer ─────────────────────────── */
-
-  HUB75_Refresh();
+  int position = 0;
+  uint32_t lastMillis = HAL_GetTick();
+  int maxpositionMillis = 100;
 
   while (1)
   {
 	  for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
 	  {
+		  int sinRow = sin(((double)(col + position) / HUB75_PANEL_WIDTH) * 3.1415 * 6) * (HUB75_PANEL_HEIGHT / 2) + (HUB75_PANEL_HEIGHT / 2);
+
 		  for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)
 		  {
-			  if (row == col)
-			  {
-				  HUB75_SetPixel(row, col, 1, 1, 1);   /* red */
+			  if (row == sinRow) {
+				  HUB75_SetPixel(row, col, 1, 1, 1);
 			  }
+			  else {
+				  HUB75_SetPixel(row, col, 0, 0, 0);
+			  }
+			  //if (row == col)
+			  //{
+				  //HUB75_SetPixel(row, col, 1, 1, 1);   /* red */
+			  //}
 
-			  if (col > 48 && row % 5 == 0)
-			  {
-				  if((row % 15) == 0)
-					  HUB75_SetPixel(row, col, 1, 0, 0);   /* red */
-				  if((row % 15) == 5)
-					  HUB75_SetPixel(row, col, 0, 1, 0);   /* green */
-				  if((row % 15) == 10)
-					  HUB75_SetPixel(row, col, 0, 0, 1);   /* blue */
-			  }
+			  //if (col > 48 && row % 5 == 0)
+			  //{
+				  //if((row % 15) == 0)
+					  //HUB75_SetPixel(row, col, 1, 0, 0);   /* red */
+				  //if((row % 15) == 5)
+					  //HUB75_SetPixel(row, col, 0, 1, 0);   /* green */
+				  //if((row % 15) == 10)
+					  //HUB75_SetPixel(row, col, 0, 0, 1);   /* blue */
+			  //}
 		  }
 	  }
 	  //if(HAL_GPIO_ReadPin(BUTTON_USER_GPIO_PORT, BUTTON_USER_PIN))
@@ -168,6 +176,14 @@ int main(void)
 	  //{
 	  //  HUB75_Refresh();
 	  //}
+
+	  if ((lastMillis - maxpositionMillis) > HAL_GetTick() || lastMillis < HAL_GetTick()) {
+		  lastMillis = HAL_GetTick();
+		  position++;
+		  if (position >= HUB75_PANEL_WIDTH) {
+			  position = 0;
+		  }
+	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
