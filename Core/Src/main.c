@@ -143,6 +143,7 @@ int main(void)
 
   while (1)
   {
+	  if(HUB75_StartDrawing()) {
 	  for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
 	  {
 		  int sinRow = sin(((double)(col + position) / HUB75_PANEL_WIDTH) * 3.1415 * 6) * (HUB75_PANEL_HEIGHT / 2) + (HUB75_PANEL_HEIGHT / 2);
@@ -157,7 +158,8 @@ int main(void)
 			  }
 		  }
 	  }
-	  HUB75_SwapFrame();
+	  HUB75_StopDrawing();
+	  }
 
 	  if (lastMillis + maxPositionMillis < HAL_GetTick()) {
 		  lastMillis = HAL_GetTick();

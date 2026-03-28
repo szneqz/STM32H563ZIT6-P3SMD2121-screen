@@ -61,7 +61,9 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
  */
 static uint8_t s_framebuf[2][HUB75_ROW_PAIRS][HUB75_PANEL_WIDTH];
 
-static uint8_t current_frame = 0;
+static uint8_t current_draw_frame = 0;
+static uint8_t current_display_frame = 1;
+static bool isDrawing = false;
 
 /* ── Private helpers ────────────────────────────────────────────────────── */
 
@@ -164,7 +166,7 @@ void HUB75_Init(XSPI_HandleTypeDef *hospi)
 
     HUB75_Clear();
 
-    prv_OSPIStartSend(s_framebuf[current_frame][0]);
+    prv_OSPIStartSend(s_framebuf[current_display_frame][0]);
 }
 
 // Called when DMA transfer completes
@@ -179,11 +181,12 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
     abcd++;
     if (abcd >= HUB75_ROW_PAIRS) {
         abcd = 0;
+        HUB75_SwapDisplayFrame();
     }
 
     // Try starting next DMA immediately
     if (hxspi->State == HAL_XSPI_STATE_READY) {
-    	HAL_StatusTypeDef status = prv_OSPIStartSend((uint8_t *)(uintptr_t)s_framebuf[current_frame][abcd]);
+    	HAL_StatusTypeDef status = prv_OSPIStartSend((uint8_t *)(uintptr_t)s_framebuf[current_display_frame][abcd]);
 
     	if (status != HAL_OK)
     	{
@@ -198,13 +201,30 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
     }
 }
 
-void HUB75_SwapFrame(void) {
-	current_frame ^= 1;
+bool HUB75_StartDrawing(void) {
+	if (current_display_frame == (current_draw_frame ^ 1)) {
+		isDrawing = false;
+		return false;
+	}
+	current_draw_frame ^= 1;
+	isDrawing = true;
+	return true;
+}
+
+void HUB75_StopDrawing(void) {
+	isDrawing = false;
+}
+
+void HUB75_SwapDisplayFrame(void) {
+	if (!isDrawing || current_draw_frame != (current_display_frame ^ 1)) {
+		current_display_frame ^= 1;
+	}
 }
 
 void HUB75_SetPixel(uint16_t row, uint16_t col,
                     uint8_t r, uint8_t g, uint8_t b)
 {
+	if (!isDrawing) return;
     if (row >= HUB75_PANEL_HEIGHT || col >= HUB75_PANEL_WIDTH) return;
 
     /*
@@ -216,7 +236,7 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
     uint8_t row_pair  = (uint8_t)(row % HUB75_ROW_PAIRS);
     uint8_t is_bottom = (row >= HUB75_ROW_PAIRS) ? 1u : 0u;
 
-    uint8_t byte = s_framebuf[current_frame ^ 1][row_pair][col];
+    uint8_t byte = s_framebuf[current_draw_frame][row_pair][col];
 
     if (is_bottom)
     {
@@ -233,7 +253,7 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
 
     byte = (byte & 0x3Fu);
 
-    s_framebuf[current_frame ^ 1][row_pair][col] = byte;
+    s_framebuf[current_draw_frame][row_pair][col] = byte;
 }
 
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)

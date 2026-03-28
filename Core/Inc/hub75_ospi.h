@@ -92,7 +92,11 @@ extern "C" {
  */
 void HUB75_Init(XSPI_HandleTypeDef *hospi);
 
-void HUB75_SwapFrame(void);
+bool HUB75_StartDrawing(void);
+
+void HUB75_StopDrawing(void);
+
+void HUB75_SwapDisplayFrame(void);
 
 /**
  * @brief  Write a 1-bit-per-channel pixel to the software framebuffer.
