@@ -59,7 +59,9 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
  *   row_pair = 0 … HUB75_ROW_PAIRS-1
  *   col      = 0 … HUB75_PANEL_WIDTH-1
  */
-static uint8_t s_framebuf[HUB75_ROW_PAIRS][HUB75_PANEL_WIDTH];
+static uint8_t s_framebuf[2][HUB75_ROW_PAIRS][HUB75_PANEL_WIDTH];
+
+static uint8_t current_frame = 0;
 
 /* ── Private helpers ────────────────────────────────────────────────────── */
 
@@ -111,7 +113,7 @@ static inline void prv_LatchRow(void)
  * @param  data  Pointer to HUB75_PANEL_WIDTH bytes.
  * @retval HAL_OK / HAL_ERROR
  */
-static HAL_StatusTypeDef prv_OSPISendRow(const uint8_t *data)
+static HAL_StatusTypeDef prv_OSPIStartSend(const uint8_t *data)
 {
     XSPI_RegularCmdTypeDef cmd = {0};
 
@@ -148,26 +150,7 @@ static HAL_StatusTypeDef prv_OSPISendRow(const uint8_t *data)
     if (HAL_XSPI_Command(s_hospi, &cmd, HAL_MAX_DELAY) != HAL_OK)
         return HAL_ERROR;
 
-    return HAL_XSPI_Transmit(s_hospi, (uint8_t *)(uintptr_t)data, HAL_MAX_DELAY);
-}
-
-/**
- * @brief  Rebuild the A,B address nibble stored in bits [7:6] of a framebuffer
- *         row's bytes after the row_pair index is known.
- *         Called whenever colour data is written, keeping the byte self-contained.
- *
- * @param  row_pair  0 … HUB75_ROW_PAIRS-1
- */
-static void prv_BakeAB(uint8_t row_pair)
-{
-    uint8_t ab   = row_pair & 0x03u;        /* low 2 bits  → A,B (OSPI)      */
-    uint8_t mask = (uint8_t)(ab << 6u);     /* bits [7:6]                     */
-
-    for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
-    {
-        s_framebuf[row_pair][col] =
-            (s_framebuf[row_pair][col] & 0x3Fu) | mask;
-    }
+    return HAL_XSPI_Transmit_DMA(s_hospi, (uint8_t *)(uintptr_t)data);
 }
 
 /* ── Public API ─────────────────────────────────────────────────────────── */
@@ -180,6 +163,43 @@ void HUB75_Init(XSPI_HandleTypeDef *hospi)
     prv_SetABCD(0u);
 
     HUB75_Clear();
+
+    prv_OSPIStartSend(s_framebuf[current_frame][0]);
+}
+
+// Called when DMA transfer completes
+void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
+	static uint8_t abcd = 0;
+
+    // Latch row and set address lines
+    prv_LatchRow();
+    prv_SetABCD(abcd);
+
+    // Increment row counter
+    abcd++;
+    if (abcd >= HUB75_ROW_PAIRS) {
+        abcd = 0;
+    }
+
+    // Try starting next DMA immediately
+    if (hxspi->State == HAL_XSPI_STATE_READY) {
+    	HAL_StatusTypeDef status = prv_OSPIStartSend((uint8_t *)(uintptr_t)s_framebuf[current_frame][abcd]);
+
+    	if (status != HAL_OK)
+    	{
+    		HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
+    		HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_SET);
+    	}
+    	else
+    	{
+    		HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
+    		HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
+    	}
+    }
+}
+
+void HUB75_SwapFrame(void) {
+	current_frame ^= 1;
 }
 
 void HUB75_SetPixel(uint16_t row, uint16_t col,
@@ -196,7 +216,7 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
     uint8_t row_pair  = (uint8_t)(row % HUB75_ROW_PAIRS);
     uint8_t is_bottom = (row >= HUB75_ROW_PAIRS) ? 1u : 0u;
 
-    uint8_t byte = s_framebuf[row_pair][col];
+    uint8_t byte = s_framebuf[current_frame ^ 1][row_pair][col];
 
     if (is_bottom)
     {
@@ -211,15 +231,9 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
         byte |= (uint8_t)(((b & 1u) << 2u) | ((g & 1u) << 1u) | (r & 1u));
     }
 
-    /* Re-bake A,B address into bits [7:6]                                   */
-    //uint8_t LATCH_OE = 0b10;
-    //if (col > (62))
-    //{
-    //	LATCH_OE = 0b01;
-    //}
-    byte = (byte & 0x3Fu); //| (uint8_t)(LATCH_OE << 6u);
+    byte = (byte & 0x3Fu);
 
-    s_framebuf[row_pair][col] = byte;
+    s_framebuf[current_frame ^ 1][row_pair][col] = byte;
 }
 
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
@@ -232,67 +246,7 @@ void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
 void HUB75_Clear(void)
 {
     /*
-     * Zero all colour bits but preserve the baked-in A,B address bits.
-     * We rebuild every row-pair from scratch so A,B are always correct.
+     * Zero all colour bits
      */
     memset(s_framebuf, 0, sizeof(s_framebuf));
-    for (uint8_t rp = 0; rp < HUB75_ROW_PAIRS; rp++)
-        prv_BakeAB(rp);
-}
-
-/**
- * HUB75_Refresh — full-frame scan
- * ─────────────────────────────────────────────────────────────────────────
- *
- * Row-pair addressing:
- *
- *   row_pair = (cd << 2) | ab       full 4-bit address (D C B A)
- *
- * Transfer map (4 outer groups × 4 inner rows = 16 OSPI transfers total):
- *
- *   cd=0 (C=0,D=0):  ab=0 → row_pair 0   ab=1 → row_pair 1  …  ab=3 → row_pair 3
- *   cd=1 (C=1,D=0):  ab=0 → row_pair 4   …                       ab=3 → row_pair 7
- *   cd=2 (C=0,D=1):  ab=0 → row_pair 8   …                       ab=3 → row_pair 11
- *   cd=3 (C=1,D=1):  ab=0 → row_pair 12  …                       ab=3 → row_pair 15
- *
- * GPIO C,D change once at the start of each outer group (4 GPIO transitions
- * per frame refresh — this is the "GPIO change between transfers" requirement).
- */
-HAL_StatusTypeDef HUB75_Refresh(void)
-{
-	HAL_StatusTypeDef status = HAL_OK;
-
-	/*
-	 * ── Outer loop: 4 C,D values  (address bits [3:2] via GPIO) ──────────
-	 * Each iteration represents one "OSPI transfer group".
-	 */
-	for (uint8_t abcd = 0; abcd < 16u; abcd++)
-	{
-			/* ── OSPI: clock out all pixels for this row-pair ─────────── */
-			status = prv_OSPISendRow(s_framebuf[abcd]);
-			if (status != HAL_OK)
-			{
-				HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
-				HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_SET);
-				return status;
-			}
-			HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
-			HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
-
-			prv_LatchRow();
-
-			/* ── GPIO: set the two address lines that OctoSPI cannot drive ──── */
-			prv_SetABCD(abcd);
-
-			/*
-			 * Optional: insert a small OE-enable window here for BCM/PWM
-			 * brightness control.  For binary (1-bit) colour the LatchRow()
-			 * already re-enables OE unconditionally.
-			 */
-		/* C,D will be updated at the top of the next cd iteration          */
-			//HAL_Delay(200);
-	}
-	//prv_SetABCD(0b0000);
-	//HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);   /* OE off  */
-	return HAL_OK;
 }

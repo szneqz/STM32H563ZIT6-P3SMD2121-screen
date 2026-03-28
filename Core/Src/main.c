@@ -44,6 +44,7 @@
 COM_InitTypeDef BspCOMInit;
 
 XSPI_HandleTypeDef hxspi1;
+DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
 SPI_HandleTypeDef hspi1;
 
@@ -55,6 +56,7 @@ SPI_HandleTypeDef hspi1;
 void SystemClock_Config(void);
 static void MPU_Config(void);
 static void MX_GPIO_Init(void);
+static void MX_GPDMA1_Init(void);
 static void MX_ICACHE_Init(void);
 static void MX_OCTOSPI1_Init(void);
 static void MX_SPI1_Init(void);
@@ -99,6 +101,7 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_GPDMA1_Init();
   MX_ICACHE_Init();
   MX_OCTOSPI1_Init();
   MX_SPI1_Init();
@@ -127,16 +130,16 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
 
   /* HUB75 driver init */
   HUB75_Init(&hxspi1);
 
   int position = 0;
   uint32_t lastMillis = HAL_GetTick();
-  int maxpositionMillis = 100;
+  int maxPositionMillis = 50;
 
   while (1)
   {
@@ -152,32 +155,11 @@ int main(void)
 			  else {
 				  HUB75_SetPixel(row, col, 0, 0, 0);
 			  }
-			  //if (row == col)
-			  //{
-				  //HUB75_SetPixel(row, col, 1, 1, 1);   /* red */
-			  //}
-
-			  //if (col > 48 && row % 5 == 0)
-			  //{
-				  //if((row % 15) == 0)
-					  //HUB75_SetPixel(row, col, 1, 0, 0);   /* red */
-				  //if((row % 15) == 5)
-					  //HUB75_SetPixel(row, col, 0, 1, 0);   /* green */
-				  //if((row % 15) == 10)
-					  //HUB75_SetPixel(row, col, 0, 0, 1);   /* blue */
-			  //}
 		  }
 	  }
-	  //if(HAL_GPIO_ReadPin(BUTTON_USER_GPIO_PORT, BUTTON_USER_PIN))
-	  //{
-	  HUB75_Refresh();
-	  //}
-	  //else
-	  //{
-	  //  HUB75_Refresh();
-	  //}
+	  HUB75_SwapFrame();
 
-	  if ((lastMillis - maxpositionMillis) > HAL_GetTick() || lastMillis < HAL_GetTick()) {
+	  if (lastMillis + maxPositionMillis < HAL_GetTick()) {
 		  lastMillis = HAL_GetTick();
 		  position++;
 		  if (position >= HUB75_PANEL_WIDTH) {
@@ -248,6 +230,34 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief GPDMA1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_GPDMA1_Init(void)
+{
+
+  /* USER CODE BEGIN GPDMA1_Init 0 */
+
+  /* USER CODE END GPDMA1_Init 0 */
+
+  /* Peripheral clock enable */
+  __HAL_RCC_GPDMA1_CLK_ENABLE();
+
+  /* GPDMA1 interrupt Init */
+    HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(GPDMA1_Channel0_IRQn);
+
+  /* USER CODE BEGIN GPDMA1_Init 1 */
+
+  /* USER CODE END GPDMA1_Init 1 */
+  /* USER CODE BEGIN GPDMA1_Init 2 */
+
+  /* USER CODE END GPDMA1_Init 2 */
+
+}
+
+/**
   * @brief ICACHE Initialization Function
   * @param None
   * @retval None
@@ -315,7 +325,7 @@ static void MX_OCTOSPI1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN OCTOSPI1_Init 2 */
-
+  __HAL_LINKDMA(&hxspi1, hdmatx, handle_GPDMA1_Channel0);
   /* USER CODE END OCTOSPI1_Init 2 */
 
 }

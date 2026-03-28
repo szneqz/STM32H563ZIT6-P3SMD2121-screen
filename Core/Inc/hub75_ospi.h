@@ -52,6 +52,7 @@ extern "C" {
 
 #include "main.h"   /* pulls in stm32h5xx_hal.h and your pin defines */
 #include <stdint.h>
+#include <stdbool.h>
 
 /* ── Panel geometry ────────────────────────────────────────────────────────
  * Change these to match your physical panel.                               */
@@ -90,6 +91,8 @@ extern "C" {
  * @param  hospi  Pointer to the HAL OctoSPI handle (usually &hospi1).
  */
 void HUB75_Init(XSPI_HandleTypeDef *hospi);
+
+void HUB75_SwapFrame(void);
 
 /**
  * @brief  Write a 1-bit-per-channel pixel to the software framebuffer.
