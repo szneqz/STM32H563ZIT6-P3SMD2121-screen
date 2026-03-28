@@ -203,7 +203,7 @@ void HAL_XSPI_MspInit(XSPI_HandleTypeDef* hxspi)
       Error_Handler();
     }
 
-    __HAL_LINKDMA(hxspi, hdmarx, handle_GPDMA1_Channel0);
+    __HAL_LINKDMA(hxspi, hdmatx, handle_GPDMA1_Channel0);
 
     if (HAL_DMA_ConfigChannelAttributes(&handle_GPDMA1_Channel0, DMA_CHANNEL_NPRIV) != HAL_OK)
     {
@@ -309,7 +309,7 @@ void HAL_XSPI_MspDeInit(XSPI_HandleTypeDef* hxspi)
     HAL_GPIO_DeInit(GPIOD, GPIO_PIN_4);
 
     /* OCTOSPI1 DMA DeInit */
-    HAL_DMA_DeInit(hxspi->hdmarx);
+    HAL_DMA_DeInit(hxspi->hdmatx);
 
     /* OCTOSPI1 interrupt DeInit */
     HAL_NVIC_DisableIRQ(OCTOSPI1_IRQn);

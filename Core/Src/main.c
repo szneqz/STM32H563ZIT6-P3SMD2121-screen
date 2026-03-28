@@ -327,7 +327,7 @@ static void MX_OCTOSPI1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN OCTOSPI1_Init 2 */
-  __HAL_LINKDMA(&hxspi1, hdmatx, handle_GPDMA1_Channel0);
+
   /* USER CODE END OCTOSPI1_Init 2 */
 
 }
