@@ -92,6 +92,8 @@ extern "C" {
  */
 void HUB75_Init(XSPI_HandleTypeDef *hospi);
 
+void HUB75_PrepareRowToDraw(uint8_t abcd);
+
 bool HUB75_StartDrawing(void);
 
 void HUB75_StopDrawing(void);

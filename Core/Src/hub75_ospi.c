@@ -46,8 +46,8 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
  * Software framebuffer — one byte per pixel per row-pair.
  *
  * Byte layout (constant A,B baked in; colour bits set by HUB75_SetPixel):
- *   [7] B  — row address bit 1
- *   [6] A  — row address bit 0
+ *   [7] not assigned
+ *   [6] not assigned
  *   [5] B2 — bottom-half blue
  *   [4] G2 — bottom-half green
  *   [3] R2 — bottom-half red
@@ -59,7 +59,8 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
  *   row_pair = 0 … HUB75_ROW_PAIRS-1
  *   col      = 0 … HUB75_PANEL_WIDTH-1
  */
-static uint8_t s_framebuf[2][HUB75_ROW_PAIRS][HUB75_PANEL_WIDTH];
+static uint8_t s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
+static uint8_t framebuf_row[HUB75_PANEL_WIDTH];
 
 static uint8_t current_draw_frame = 0;
 static uint8_t current_display_frame = 1;
@@ -166,7 +167,8 @@ void HUB75_Init(XSPI_HandleTypeDef *hospi)
 
     HUB75_Clear();
 
-    prv_OSPIStartSend(s_framebuf[current_display_frame][0]);
+    HUB75_PrepareRowToDraw(0);
+    prv_OSPIStartSend((uint8_t *)(uintptr_t)framebuf_row);
 }
 
 // Called when DMA transfer completes
@@ -184,9 +186,11 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
         HUB75_SwapDisplayFrame();
     }
 
+    HUB75_PrepareRowToDraw(abcd);
+
     // Try starting next DMA immediately
     if (hxspi->State == HAL_XSPI_STATE_READY) {
-    	HAL_StatusTypeDef status = prv_OSPIStartSend((uint8_t *)(uintptr_t)s_framebuf[current_display_frame][abcd]);
+    	HAL_StatusTypeDef status = prv_OSPIStartSend((uint8_t *)(uintptr_t)framebuf_row);
 
     	if (status != HAL_OK)
     	{
@@ -199,6 +203,59 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
     		HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
     	}
     }
+}
+
+// Compact bits at positions {4,2,0} down to {2,1,0}
+// Input s guaranteed to have only bits 0, 2, 4 set (from & 0x15 mask)
+#define COMPACT3(s)  ((uint8_t)((s & 1u) | ((s >> 1u) & 2u) | ((s >> 2u) & 4u)))
+
+void HUB75_PrepareRowToDraw(uint8_t abcd)
+{
+    static uint8_t current_frame_nr = 0;
+
+    // Cache row pointers once — avoids re-computing multi-dim array offsets
+    // 'restrict' tells the compiler row0, row1, out don't alias → better codegen
+    const uint8_t * const restrict row0 = s_framebuf[current_display_frame][abcd];
+    const uint8_t * const restrict row1 = s_framebuf[current_display_frame][abcd + HUB75_ROW_PAIRS];
+    uint8_t       * const restrict out  = framebuf_row;
+
+    const uint8_t fn = current_frame_nr;   // hoist invariant to register
+
+    // Pixel byte format: bits [1:0]=R, [3:2]=G, [5:4]=B (2-bit channels)
+    // Branch on fn is hoisted OUT of the loop — one branch, three tight loops
+    if (fn < 1u) {
+        // channel > 0: nonzero ↔️ OR of both bits in each 2-bit field
+        for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
+            uint8_t p0 = row0[i];
+            uint8_t p1 = row1[i];
+            uint8_t s0 = (uint8_t)((p0 | (p0 >> 1u)) & 0x15u);
+            uint8_t s1 = (uint8_t)((p1 | (p1 >> 1u)) & 0x15u);
+            out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
+        }
+    } else if (fn < 3u) {
+        // channel > 1: MSB of field set ↔️ just the upper bit of each 2-bit field
+        for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
+            uint8_t p0 = row0[i];
+            uint8_t p1 = row1[i];
+            uint8_t s0 = (uint8_t)((p0 >> 1u) & 0x15u);
+            uint8_t s1 = (uint8_t)((p1 >> 1u) & 0x15u);
+            out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
+        }
+    } else {
+        // channel > 2: must equal 3 ↔️ AND of both bits in each 2-bit field
+        for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
+            uint8_t p0 = row0[i];
+            uint8_t p1 = row1[i];
+            uint8_t s0 = (uint8_t)((p0 & (p0 >> 1u)) & 0x15u);
+            uint8_t s1 = (uint8_t)((p1 & (p1 >> 1u)) & 0x15u);
+            out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
+        }
+    }
+
+    #undef COMPACT3
+
+    // Branchless modulo-3 increment
+    current_frame_nr = (fn >= 4u) ? 0u : fn + 1u;
 }
 
 bool HUB75_StartDrawing(void) {
@@ -227,33 +284,8 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
 	if (!isDrawing) return;
     if (row >= HUB75_PANEL_HEIGHT || col >= HUB75_PANEL_WIDTH) return;
 
-    /*
-     * Map absolute row → row_pair and top/bottom half.
-     *
-     * Rows 0 … ROW_PAIRS-1       → top half    (R1,G1,B1)
-     * Rows ROW_PAIRS … HEIGHT-1  → bottom half  (R2,G2,B2)
-     */
-    uint8_t row_pair  = (uint8_t)(row % HUB75_ROW_PAIRS);
-    uint8_t is_bottom = (row >= HUB75_ROW_PAIRS) ? 1u : 0u;
-
-    uint8_t byte = s_framebuf[current_draw_frame][row_pair][col];
-
-    if (is_bottom)
-    {
-        /* Update bits [5:3] (B2,G2,R2), preserve the rest                  */
-        byte &= ~0x38u;
-        byte |= (uint8_t)(((b & 1u) << 5u) | ((g & 1u) << 4u) | ((r & 1u) << 3u));
-    }
-    else
-    {
-        /* Update bits [2:0] (B1,G1,R1), preserve the rest                  */
-        byte &= ~0x07u;
-        byte |= (uint8_t)(((b & 1u) << 2u) | ((g & 1u) << 1u) | (r & 1u));
-    }
-
-    byte = (byte & 0x3Fu);
-
-    s_framebuf[current_draw_frame][row_pair][col] = byte;
+    s_framebuf[current_draw_frame][row][col] =
+    		(uint8_t)(((b & 3u) << 4u) | ((g & 3u) << 2u) | (r & 3u));
 }
 
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
@@ -269,4 +301,5 @@ void HUB75_Clear(void)
      * Zero all colour bits
      */
     memset(s_framebuf, 0, sizeof(s_framebuf));
+    memset(framebuf_row, 0, sizeof(framebuf_row));
 }
