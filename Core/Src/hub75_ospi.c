@@ -65,6 +65,7 @@ static uint8_t framebuf_row[HUB75_PANEL_WIDTH];
 static uint8_t current_draw_frame = 0;
 static uint8_t current_display_frame = 1;
 static bool isDrawing = false;
+static bool alreadyDisplayed = false;
 
 /* ── Private helpers ────────────────────────────────────────────────────── */
 
@@ -270,11 +271,13 @@ bool HUB75_StartDrawing(void) {
 
 void HUB75_StopDrawing(void) {
 	isDrawing = false;
+	alreadyDisplayed = false;
 }
 
 void HUB75_SwapDisplayFrame(void) {
-	if (!isDrawing || current_draw_frame != (current_display_frame ^ 1)) {
+	if (!alreadyDisplayed && (!isDrawing || current_draw_frame != (current_display_frame ^ 1))) {
 		current_display_frame ^= 1;
+		alreadyDisplayed = true;
 	}
 }
 
