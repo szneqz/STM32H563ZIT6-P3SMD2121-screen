@@ -86,6 +86,8 @@ void Error_Handler(void);
 #define RMII_MDIO_GPIO_Port GPIOA
 #define VBUS_SENSE_Pin GPIO_PIN_4
 #define VBUS_SENSE_GPIO_Port GPIOA
+#define NOKIA_SCLK_Pin GPIO_PIN_5
+#define NOKIA_SCLK_GPIO_Port GPIOA
 #define RMII_CRS_DV_Pin GPIO_PIN_7
 #define RMII_CRS_DV_GPIO_Port GPIOA
 #define RMII_RXD0_Pin GPIO_PIN_4
@@ -94,6 +96,8 @@ void Error_Handler(void);
 #define RMII_RXD1_GPIO_Port GPIOC
 #define DISPLAY_OE_Pin GPIO_PIN_0
 #define DISPLAY_OE_GPIO_Port GPIOG
+#define NOKIA_SCE_Pin GPIO_PIN_12
+#define NOKIA_SCE_GPIO_Port GPIOB
 #define UCPD_CC1_Pin GPIO_PIN_13
 #define UCPD_CC1_GPIO_Port GPIOB
 #define UCPD_CC2_Pin GPIO_PIN_14
@@ -106,6 +110,8 @@ void Error_Handler(void);
 #define GAMEPAD_1_GPIO_Port GPIOG
 #define UCPD_FLT_Pin GPIO_PIN_7
 #define UCPD_FLT_GPIO_Port GPIOG
+#define NOKIA_DC_Pin GPIO_PIN_7
+#define NOKIA_DC_GPIO_Port GPIOC
 #define UCDP_DBn_Pin GPIO_PIN_9
 #define UCDP_DBn_GPIO_Port GPIOA
 #define USB_FS_N_Pin GPIO_PIN_11
@@ -132,14 +138,16 @@ void Error_Handler(void);
 #define GAMEPAD_5_GPIO_Port GPIOD
 #define NOKIA_RST_Pin GPIO_PIN_9
 #define NOKIA_RST_GPIO_Port GPIOG
+#define NOKIA_SCE_US_Pin GPIO_PIN_10
+#define NOKIA_SCE_US_GPIO_Port GPIOG
 #define RMII_TXT_EN_Pin GPIO_PIN_11
 #define RMII_TXT_EN_GPIO_Port GPIOG
 #define RMI_TXD0_Pin GPIO_PIN_13
 #define RMI_TXD0_GPIO_Port GPIOG
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
-#define NOKIA_DC_Pin GPIO_PIN_5
-#define NOKIA_DC_GPIO_Port GPIOB
+#define NOKIA_DNMOSI_Pin GPIO_PIN_5
+#define NOKIA_DNMOSI_GPIO_Port GPIOB
 #define ARD_D1_TX_Pin GPIO_PIN_6
 #define ARD_D1_TX_GPIO_Port GPIOB
 #define ARD_D0_RX_Pin GPIO_PIN_7

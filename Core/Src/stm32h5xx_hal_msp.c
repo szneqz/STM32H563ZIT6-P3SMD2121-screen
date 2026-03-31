@@ -104,7 +104,7 @@ void HAL_XSPI_MspInit(XSPI_HandleTypeDef* hxspi)
     PeriphClkInitStruct.PLL2.PLL2R = 128;
     PeriphClkInitStruct.PLL2.PLL2RGE = RCC_PLL2_VCIRANGE_3;
     PeriphClkInitStruct.PLL2.PLL2VCOSEL = RCC_PLL2_VCORANGE_WIDE;
-    PeriphClkInitStruct.PLL2.PLL2FRACN = 0.0;
+    PeriphClkInitStruct.PLL2.PLL2FRACN = 0;
     PeriphClkInitStruct.PLL2.PLL2ClockOut = RCC_PLL2_DIVR;
     PeriphClkInitStruct.OspiClockSelection = RCC_OSPICLKSOURCE_PLL2R;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
@@ -356,26 +356,26 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef* hspi)
     PG10     ------> SPI1_NSS
     PB5     ------> SPI1_MOSI
     */
-    GPIO_InitStruct.Pin = GPIO_PIN_5;
+    GPIO_InitStruct.Pin = NOKIA_SCLK_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
-    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+    HAL_GPIO_Init(NOKIA_SCLK_GPIO_Port, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = GPIO_PIN_10;
+    GPIO_InitStruct.Pin = NOKIA_SCE_US_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
-    HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
+    HAL_GPIO_Init(NOKIA_SCE_US_GPIO_Port, &GPIO_InitStruct);
 
-    GPIO_InitStruct.Pin = NOKIA_DC_Pin;
+    GPIO_InitStruct.Pin = NOKIA_DNMOSI_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF5_SPI1;
-    HAL_GPIO_Init(NOKIA_DC_GPIO_Port, &GPIO_InitStruct);
+    HAL_GPIO_Init(NOKIA_DNMOSI_GPIO_Port, &GPIO_InitStruct);
 
     /* USER CODE BEGIN SPI1_MspInit 1 */
 
@@ -406,11 +406,11 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef* hspi)
     PG10     ------> SPI1_NSS
     PB5     ------> SPI1_MOSI
     */
-    HAL_GPIO_DeInit(GPIOA, GPIO_PIN_5);
+    HAL_GPIO_DeInit(NOKIA_SCLK_GPIO_Port, NOKIA_SCLK_Pin);
 
-    HAL_GPIO_DeInit(GPIOG, GPIO_PIN_10);
+    HAL_GPIO_DeInit(NOKIA_SCE_US_GPIO_Port, NOKIA_SCE_US_Pin);
 
-    HAL_GPIO_DeInit(NOKIA_DC_GPIO_Port, NOKIA_DC_Pin);
+    HAL_GPIO_DeInit(NOKIA_DNMOSI_GPIO_Port, NOKIA_DNMOSI_Pin);
 
     /* USER CODE BEGIN SPI1_MspDeInit 1 */
 

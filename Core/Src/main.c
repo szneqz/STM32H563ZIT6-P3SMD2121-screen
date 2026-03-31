@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "hub75_ospi.h"
+#include "nokia3310.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -133,6 +134,27 @@ int main(void)
   HAL_GPIO_WritePin(LED1_GPIO_PORT, LED1_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
+
+  NOKIA_Init(&hspi1);
+
+  NOKIA_Clear();
+
+      // test: fill screen
+      //for (int i = 0; i < 504; i++) {
+      //    NOKIA_Data(0b10101100);
+      //}
+
+  NOKIA_Data(0b00001111);
+  NOKIA_Data(0b00001001);
+  NOKIA_Data(0b00001001);
+  NOKIA_Data(0b00001001);
+  NOKIA_Data(0b00001001);
+  NOKIA_Data(0b00001001);
+  NOKIA_Data(0b00001001);
+  NOKIA_Data(0b00001111);
+  NOKIA_Data(0b00000000);
+  NOKIA_Data(0b00000000);
+  NOKIA_Data(0b10100000);
 
   /* HUB75 driver init */
   HUB75_Init(&hxspi1);
@@ -386,15 +408,15 @@ static void MX_SPI1_Init(void)
   hspi1.Init.Mode = SPI_MODE_MASTER;
   hspi1.Init.Direction = SPI_DIRECTION_2LINES_TXONLY;
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi1.Init.CLKPolarity = SPI_POLARITY_HIGH;
+  hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_64;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
   hspi1.Init.CRCPolynomial = 0x7;
-  hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  hspi1.Init.NSSPMode = SPI_NSS_PULSE_DISABLE;
   hspi1.Init.NSSPolarity = SPI_NSS_POLARITY_LOW;
   hspi1.Init.FifoThreshold = SPI_FIFO_THRESHOLD_01DATA;
   hspi1.Init.MasterSSIdleness = SPI_MASTER_SS_IDLENESS_00CYCLE;
@@ -443,10 +465,13 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOG, DISPLAY_OE_Pin|NOKIA_RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, DISPLAY_B_Pin|DISPLAY_LATCH_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, NOKIA_SCE_Pin|GPIO_PIN_4, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, GPIO_PIN_4, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(NOKIA_DC_GPIO_Port, NOKIA_DC_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, DISPLAY_B_Pin|DISPLAY_LATCH_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : DISPLAY_C_Pin DISPLAY_D_Pin DISPLAY_A_Pin */
   GPIO_InitStruct.Pin = DISPLAY_C_Pin|DISPLAY_D_Pin|DISPLAY_A_Pin;
@@ -484,6 +509,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(DISPLAY_OE_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : NOKIA_SCE_Pin PB4 */
+  GPIO_InitStruct.Pin = NOKIA_SCE_Pin|GPIO_PIN_4;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
   /*Configure GPIO pins : UCPD_CC1_Pin UCPD_CC2_Pin */
   GPIO_InitStruct.Pin = UCPD_CC1_Pin|UCPD_CC2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_ANALOG;
@@ -509,6 +541,13 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(UCPD_FLT_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : NOKIA_DC_Pin */
+  GPIO_InitStruct.Pin = NOKIA_DC_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(NOKIA_DC_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : USB_FS_N_Pin USB_FS_P_Pin */
   GPIO_InitStruct.Pin = USB_FS_N_Pin|USB_FS_P_Pin;
@@ -545,13 +584,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   GPIO_InitStruct.Alternate = GPIO_AF11_ETH;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : PB4 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /*Configure GPIO pins : ARD_D1_TX_Pin ARD_D0_RX_Pin */
   GPIO_InitStruct.Pin = ARD_D1_TX_Pin|ARD_D0_RX_Pin;
