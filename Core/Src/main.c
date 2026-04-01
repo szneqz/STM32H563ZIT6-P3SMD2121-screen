@@ -48,6 +48,7 @@ XSPI_HandleTypeDef hxspi1;
 DMA_HandleTypeDef handle_GPDMA1_Channel0;
 
 SPI_HandleTypeDef hspi1;
+DMA_HandleTypeDef handle_GPDMA1_Channel1;
 
 /* USER CODE BEGIN PV */
 
@@ -144,17 +145,17 @@ int main(void)
       //    NOKIA_Data(0b10101100);
       //}
 
-  NOKIA_Data(0b00001111);
-  NOKIA_Data(0b00001001);
-  NOKIA_Data(0b00001001);
-  NOKIA_Data(0b00001001);
-  NOKIA_Data(0b00001001);
-  NOKIA_Data(0b00001001);
-  NOKIA_Data(0b00001001);
-  NOKIA_Data(0b00001111);
-  NOKIA_Data(0b00000000);
-  NOKIA_Data(0b00000000);
-  NOKIA_Data(0b10100000);
+  NOKIA_Data_Single(0b00001111);
+  NOKIA_Data_Single(0b00001001);
+  NOKIA_Data_Single(0b00001001);
+  NOKIA_Data_Single(0b00001001);
+  NOKIA_Data_Single(0b00001001);
+  NOKIA_Data_Single(0b00001001);
+  NOKIA_Data_Single(0b00001001);
+  NOKIA_Data_Single(0b00001111);
+  NOKIA_Data_Single(0b00000000);
+  NOKIA_Data_Single(0b00000000);
+  NOKIA_Data_Single(0b10100000);
 
   /* HUB75 driver init */
   HUB75_Init(&hxspi1);
@@ -165,6 +166,17 @@ int main(void)
 
   while (1)
   {
+	  NOKIA_Data_Single(0b00001111);
+	  NOKIA_Data_Single(0b00001001);
+	  NOKIA_Data_Single(0b00001001);
+	  NOKIA_Data_Single(0b00001001);
+	  NOKIA_Data_Single(0b00001001);
+	  NOKIA_Data_Single(0b00001001);
+	  NOKIA_Data_Single(0b00001001);
+	  NOKIA_Data_Single(0b00001111);
+	  NOKIA_Data_Single(0b00000000);
+	  NOKIA_Data_Single(0b00000000);
+	  NOKIA_Data_Single(0b10100000);
 	  if (lastMillis + maxPositionMillis < HAL_GetTick()) {
 		  if(HUB75_StartDrawing()) {
 		  		  	  for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
@@ -305,6 +317,8 @@ static void MX_GPDMA1_Init(void)
   /* GPDMA1 interrupt Init */
     HAL_NVIC_SetPriority(GPDMA1_Channel0_IRQn, 0, 0);
     HAL_NVIC_EnableIRQ(GPDMA1_Channel0_IRQn);
+    HAL_NVIC_SetPriority(GPDMA1_Channel1_IRQn, 0, 0);
+    HAL_NVIC_EnableIRQ(GPDMA1_Channel1_IRQn);
 
   /* USER CODE BEGIN GPDMA1_Init 1 */
 
@@ -410,7 +424,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.DataSize = SPI_DATASIZE_8BIT;
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi1.Init.NSS = SPI_NSS_HARD_OUTPUT;
+  hspi1.Init.NSS = SPI_NSS_SOFT;
   hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_32;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;

@@ -138,8 +138,6 @@ void Error_Handler(void);
 #define GAMEPAD_5_GPIO_Port GPIOD
 #define NOKIA_RST_Pin GPIO_PIN_9
 #define NOKIA_RST_GPIO_Port GPIOG
-#define NOKIA_SCE_US_Pin GPIO_PIN_10
-#define NOKIA_SCE_US_GPIO_Port GPIOG
 #define RMII_TXT_EN_Pin GPIO_PIN_11
 #define RMII_TXT_EN_GPIO_Port GPIOG
 #define RMI_TXD0_Pin GPIO_PIN_13

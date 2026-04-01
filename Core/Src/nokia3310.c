@@ -1,6 +1,7 @@
 #include "nokia3310.h"
 
 static SPI_HandleTypeDef *s_hspi = NULL;
+volatile bool spi_busy = 0;
 
 void NOKIA_Select() {
     HAL_GPIO_WritePin(NOKIA_SCE_PORT, NOKIA_SCE_PIN, GPIO_PIN_RESET);
@@ -12,18 +13,38 @@ void NOKIA_Unselect() {
 
 void NOKIA_Cmd(uint8_t cmd)
 {
-    HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, GPIO_PIN_RESET); // command
-    NOKIA_Select();
-    HAL_SPI_Transmit(s_hspi, &cmd, 1, HAL_MAX_DELAY);
-    NOKIA_Unselect();
+	if (!spi_busy) {
+		HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, GPIO_PIN_RESET); // command
+		NOKIA_Select();
+		HAL_SPI_Transmit(s_hspi, &cmd, 1, HAL_MAX_DELAY);
+		NOKIA_Unselect();
+	}
 }
 
-void NOKIA_Data(uint8_t data)
+void NOKIA_Data(uint8_t *data)
 {
-    HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, GPIO_PIN_SET); // data
-    NOKIA_Select();
-    HAL_SPI_Transmit(s_hspi, &data, 1, HAL_MAX_DELAY);
-    NOKIA_Unselect();
+	if (!spi_busy) {
+		spi_busy = true;
+		HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, GPIO_PIN_SET); // data
+		NOKIA_Select();
+		HAL_SPI_Transmit_DMA(s_hspi, data, 1);
+	}
+}
+
+void NOKIA_Data_Single(uint8_t data)
+{
+	if (!spi_busy) {
+		spi_busy = true;
+		HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, GPIO_PIN_SET); // data
+		NOKIA_Select();
+		HAL_StatusTypeDef status = HAL_SPI_Transmit_DMA(s_hspi, &data, 1);
+
+		if (data > 0x00)
+		{
+			int a = 0;
+			int b = a;
+		}
+	}
 }
 
 void NOKIA_Reset()
@@ -48,9 +69,17 @@ void NOKIA_Init(SPI_HandleTypeDef *hspi)
     NOKIA_Cmd(0x0C); // Normal display (not inverted)
 }
 
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
+{
+    if (hspi->Instance == SPI1) {
+    	NOKIA_Unselect();
+        spi_busy = false;
+    }
+}
+
 void NOKIA_Clear()
 {
     for (int i = 0; i < 504; i++) {
-        NOKIA_Data(0x00);
+    	NOKIA_Data_Single(0x00);
     }
 }
