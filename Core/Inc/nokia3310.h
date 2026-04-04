@@ -20,13 +20,24 @@
 #define NOKIA_RST_PORT		NOKIA_RST_GPIO_Port
 #define NOKIA_RST_PIN		NOKIA_RST_Pin
 
-void NOKIA_Select();
-void NOKIA_Unselect();
-void NOKIA_Cmd(uint8_t cmd);
-void NOKIA_Data(uint8_t *data);
-void NOKIA_Data_Single(uint8_t data);
-void NOKIA_Reset();
+#define NOKIA_PANEL_WIDTH   84u
+#define NOKIA_PANEL_HEIGHT  48u
+#define NOKIA_PANEL_LINES   (NOKIA_PANEL_HEIGHT / 8u)
+#define NOKIA_PANEL_DATA_SIZE (NOKIA_PANEL_WIDTH * NOKIA_PANEL_LINES)
+
+#define NOKIA_CMD_TYPE 0u
+#define NOKIA_DATA_TYPE 1u
+
+void NOKIA_Select(void);
+void NOKIA_Unselect(void);
+void NOKIA_SendCmd(uint8_t *cmd, uint16_t size);
+void NOKIA_SendData(void);
+void NOKIA_SetPixel(uint8_t x, uint8_t y, bool black);
+bool NOKIA_StartDataPrepare(void);
+void NOKIA_StopDataPrepare(void);
+bool NOKIA_SwapDisplayFrame(void);
+void NOKIA_Reset(void);
 void NOKIA_Init(SPI_HandleTypeDef *hspi);
-void NOKIA_Clear();
+void NOKIA_Clear(void);
 
 #endif /* SRC_NOKIA3310_H_ */

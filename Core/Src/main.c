@@ -136,26 +136,8 @@ int main(void)
   HAL_GPIO_WritePin(LED2_GPIO_PORT, LED2_PIN, GPIO_PIN_RESET);
   HAL_GPIO_WritePin(LED3_GPIO_PORT, LED3_PIN, GPIO_PIN_RESET);
 
+  /* NOKIA driver init */
   NOKIA_Init(&hspi1);
-
-  NOKIA_Clear();
-
-      // test: fill screen
-      //for (int i = 0; i < 504; i++) {
-      //    NOKIA_Data(0b10101100);
-      //}
-
-  NOKIA_Data_Single(0b00001111);
-  NOKIA_Data_Single(0b00001001);
-  NOKIA_Data_Single(0b00001001);
-  NOKIA_Data_Single(0b00001001);
-  NOKIA_Data_Single(0b00001001);
-  NOKIA_Data_Single(0b00001001);
-  NOKIA_Data_Single(0b00001001);
-  NOKIA_Data_Single(0b00001111);
-  NOKIA_Data_Single(0b00000000);
-  NOKIA_Data_Single(0b00000000);
-  NOKIA_Data_Single(0b10100000);
 
   /* HUB75 driver init */
   HUB75_Init(&hxspi1);
@@ -166,69 +148,76 @@ int main(void)
 
   while (1)
   {
-	  NOKIA_Data_Single(0b00001111);
-	  NOKIA_Data_Single(0b00001001);
-	  NOKIA_Data_Single(0b00001001);
-	  NOKIA_Data_Single(0b00001001);
-	  NOKIA_Data_Single(0b00001001);
-	  NOKIA_Data_Single(0b00001001);
-	  NOKIA_Data_Single(0b00001001);
-	  NOKIA_Data_Single(0b00001111);
-	  NOKIA_Data_Single(0b00000000);
-	  NOKIA_Data_Single(0b00000000);
-	  NOKIA_Data_Single(0b10100000);
 	  if (lastMillis + maxPositionMillis < HAL_GetTick()) {
 		  if(HUB75_StartDrawing()) {
-		  		  	  for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
-		  		  	  {
-		  		  		  int sinRow = sin(((double)(col + position) / HUB75_PANEL_WIDTH) * 3.1415 * 6) * (HUB75_PANEL_HEIGHT / 2) + (HUB75_PANEL_HEIGHT / 2);
+			  for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
+			  {
+				  int sinRow = sin(((double)(col + position) / HUB75_PANEL_WIDTH) * 3.1415 * 6) * (HUB75_PANEL_HEIGHT / 2) + (HUB75_PANEL_HEIGHT / 2);
 
-		  		  		  for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)
-		  		  		  {
-		  		  			  if (row == sinRow) {
-		  		  				  HUB75_SetPixel(row, col, 3, 3, 3);
-		  		  			  }
-		  		  			  else {
-		  		  				  if(row > sinRow) {
-		  		  					  int v = col % 64;
+				  for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)
+				  {
+					  if (row == sinRow) {
+						  HUB75_SetPixel(row, col, 3, 3, 3);
+					  }
+					  else {
+						  if(row > sinRow) {
+							  int v = col % 64;
 
-		  		  					  // Hue: 0–360
-		  		  					  float h = (v / 64.0f) * 360.0f;
-		  		  					  float s = 1.0f;
-		  		  					  float val = (row / 16.0f);
+							  // Hue: 0–360
+							  float h = (v / 64.0f) * 360.0f;
+							  float s = 1.0f;
+							  float val = (row / 16.0f);
 
-		  		  					  // HSV → RGB
-		  		  					  float c = val * s;
-		  		  					  float x = c * (1 - fabsf(fmodf(h / 60.0f, 2) - 1));
-		  		  					  float m = val - c;
+							  // HSV → RGB
+							  float c = val * s;
+							  float x = c * (1 - fabsf(fmodf(h / 60.0f, 2) - 1));
+							  float m = val - c;
 
-		  		  					  float r1, g1, b1;
+							  float r1, g1, b1;
 
-		  		  					  if (h < 60)       { r1 = c; g1 = x; b1 = 0; }
-		  		  					  else if (h < 120) { r1 = x; g1 = c; b1 = 0; }
-		  		  					  else if (h < 180) { r1 = 0; g1 = c; b1 = x; }
-		  		  					  else if (h < 240) { r1 = 0; g1 = x; b1 = c; }
-		  		  					  else if (h < 300) { r1 = x; g1 = 0; b1 = c; }
-		  		  					  else              { r1 = c; g1 = 0; b1 = x; }
+							  if (h < 60)       { r1 = c; g1 = x; b1 = 0; }
+							  else if (h < 120) { r1 = x; g1 = c; b1 = 0; }
+							  else if (h < 180) { r1 = 0; g1 = c; b1 = x; }
+							  else if (h < 240) { r1 = 0; g1 = x; b1 = c; }
+							  else if (h < 300) { r1 = x; g1 = 0; b1 = c; }
+							  else              { r1 = c; g1 = 0; b1 = x; }
 
-		  		  					  // scale to 0–3
-		  		  					  int r = (int)((r1 + m) * 3.0f);
-		  		  					  r = r > 3 ? 3 : r;
-		  		  					  int g = (int)((g1 + m) * 3.0f);
-		  		  					  g = g > 3 ? 3 : g;
-		  		  					  int b = (int)((b1 + m) * 3.0f);
-		  		  					  b = b > 3 ? 3 : b;
+							  // scale to 0–3
+							  int r = (int)((r1 + m) * 3.0f);
+							  r = r > 3 ? 3 : r;
+							  int g = (int)((g1 + m) * 3.0f);
+							  g = g > 3 ? 3 : g;
+							  int b = (int)((b1 + m) * 3.0f);
+							  b = b > 3 ? 3 : b;
 
-		  		  					  HUB75_SetPixel(row, col, r, g, b);
-		  		  				  }
-		  		  				  else {
-		  		  					  HUB75_SetPixel(row, col, 0, 0, 0);
-		  		  				  }
-		  		  			  }
-		  		  		  }
-		  		  	  }
-		  		  	  HUB75_StopDrawing();
-		  		  	  }
+							  HUB75_SetPixel(row, col, r, g, b);
+						  }
+						  else {
+							  HUB75_SetPixel(row, col, 0, 0, 0);
+						  }
+					  }
+				  }
+			  }
+			  HUB75_StopDrawing();
+		  }
+
+		  if(NOKIA_StartDataPrepare()) {
+			  for (uint16_t col = 0; col < NOKIA_PANEL_WIDTH; col++)
+			  {
+				  int sinRow = sin(((double)(col + position) / NOKIA_PANEL_WIDTH) * 3.1415 * 6) * (NOKIA_PANEL_HEIGHT / 2) + (NOKIA_PANEL_HEIGHT / 2);
+
+				  for (uint16_t row = 0; row < NOKIA_PANEL_HEIGHT; row++) {
+					  if (row == sinRow) {
+						  NOKIA_SetPixel(col, row, true);
+					  }
+					  else {
+						  NOKIA_SetPixel(col, row, false);
+					  }
+				  }
+			  }
+			  NOKIA_StopDataPrepare();
+			  NOKIA_SendData();
+		  }
 
 		  lastMillis = HAL_GetTick();
 		  position++;
@@ -236,9 +225,9 @@ int main(void)
 			  position = 0;
 		  }
 	  }
-    /* USER CODE END WHILE */
+	  /* USER CODE END WHILE */
 
-    /* USER CODE BEGIN 3 */
+	  /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */
 }
