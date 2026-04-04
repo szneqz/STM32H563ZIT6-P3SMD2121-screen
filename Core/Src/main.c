@@ -215,6 +215,12 @@ int main(void)
 					  }
 				  }
 			  }
+
+			  NOKIA_SetLine(5, 1, 50, 20, true);
+			  NOKIA_SetRect(20, 20, 30, 40, false, true);
+			  NOKIA_SetCircle(50, 30, 5, true, 5);
+			  NOKIA_SetStr("A quick brown fox jumpS over the lazy doG!\n1234567890\\./", 10, 0, true, true);
+
 			  NOKIA_StopDataPrepare();
 			  NOKIA_SendData();
 		  }
