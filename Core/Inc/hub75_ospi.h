@@ -13,33 +13,18 @@
  *   OSPI IO3  ──►  R2   (bottom-half red)
  *   OSPI IO4  ──►  G2   (bottom-half green)
  *   OSPI IO5  ──►  B2   (bottom-half blue)
- *   OSPI IO6  ──►  A    (row address bit 0)  ← baked into every framebuf byte
- *   OSPI IO7  ──►  B    (row address bit 1)  ← baked into every framebuf byte
+ *   OSPI IO6  ──►  NC
+ *   OSPI IO7  ──►  NC
  *   OSPI CLK  ──►  CLK
  *
  * External GPIO (outputs):
- *   C_PIN  ──►  C   (row address bit 2)  ┐ change only 4× per frame
- *   D_PIN  ──►  D   (row address bit 3)  ┘
+ *   A_PIN  ──►  A	 (row address bit 0)
+ *   B_PIN  ──►  B   (row address bit 2)
+ *   C_PIN  ──►  C   (row address bit 2)
+ *   D_PIN  ──►  D   (row address bit 3)
  *   LAT_PIN ──► LAT
  *   OE_PIN  ──► OE  (active-low)
  *
- * Frame refresh strategy (for a 64×32 panel, 16 row-pairs):
- *
- *   for cd in {00, 01, 10, 11}:            ← 4 OSPI transfer groups
- *       GPIO: set C, D = cd
- *       for ab in {00, 01, 10, 11}:        ← 4 OSPI Transmit() calls
- *           OSPI: clock out PANEL_WIDTH bytes  (A,B embedded in bits[7:6])
- *           GPIO: pulse LAT, manage OE
- *
- * Each byte in the transfer:
- *   bit 7 (IO7) = B  ─ row address bit 1 (constant within one row)
- *   bit 6 (IO6) = A  ─ row address bit 0 (constant within one row)
- *   bit 5 (IO5) = B2
- *   bit 4 (IO4) = G2
- *   bit 3 (IO3) = R2
- *   bit 2 (IO2) = B1
- *   bit 1 (IO1) = G1
- *   bit 0 (IO0) = R1
  ******************************************************************************
  */
 
@@ -56,12 +41,11 @@ extern "C" {
 
 /* ── Panel geometry ────────────────────────────────────────────────────────
  * Change these to match your physical panel.                               */
-#define HUB75_PANEL_WIDTH   128u   /* pixels per row                        */
-#define HUB75_PANEL_HEIGHT  32u   /* total rows  (must be 2 × ROW_PAIRS)   */
-#define HUB75_ROW_PAIRS     (HUB75_PANEL_HEIGHT / 2u)   /* = 16            */
+#define HUB75_PANEL_WIDTH   128u   /* pixels per row  (64 × 2 because there are two panels */
+#define HUB75_PANEL_HEIGHT  32u    /* total rows  (must be 2 × ROW_PAIRS)   */
+#define HUB75_ROW_PAIRS     (HUB75_PANEL_HEIGHT / 2u)   /* = 16             */
 
 /* ── GPIO: row address bits A, B, C and D ───────────────────────────────────────
- * These are the two address bits NOT carried by OctoSPI.
  * Adjust PORT / PIN to your actual wiring.                                 */
 #define HUB75_A_PORT        DISPLAY_A_GPIO_Port
 #define HUB75_A_PIN         DISPLAY_A_Pin
@@ -126,8 +110,8 @@ void HUB75_Clear(void);
 
 /**
  * @brief  Push the framebuffer to the panel.
- *         Performs 4 × 4 = 16 OctoSPI row transfers (one per row-pair)
- *         grouped into 4 blocks by the C,D GPIO value.
+ *         Performs 16 OctoSPI row transfers (one per row-pair)
+ *         grouped into 8 blocks by the A,B,C,D GPIO value.
  *         Call this repeatedly (e.g. from a 1 kHz timer callback).
  * @retval HAL_OK on success, HAL_ERROR if any OSPI transfer fails.
  */

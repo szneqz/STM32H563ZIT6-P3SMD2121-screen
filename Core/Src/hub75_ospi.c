@@ -16,21 +16,23 @@
  *   NCS pin                : not connected (or tied high externally)
  *
  * Typical OCTOSPI1 IO pin assignments on STM32H563 (verify with your board):
- *   OCTOSPI1_IO0  PB1  (AF10)   → R1
- *   OCTOSPI1_IO1  PB2  (AF10)   → G1
- *   OCTOSPI1_IO2  PA7  (AF10)   → B1
+ *   OCTOSPI1_IO0  PF8  (AF10)   → R1
+ *   OCTOSPI1_IO1  PF9  (AF10)   → G1
+ *   OCTOSPI1_IO2  PF7  (AF10)   → B1
  *   OCTOSPI1_IO3  PA6  (AF10)   → R2
- *   OCTOSPI1_IO4  PB0  (AF10)   → G2
- *   OCTOSPI1_IO5  PB9  (AF10)   → B2
- *   OCTOSPI1_IO6  PD7  (AF10)   → A  (row address bit 0)
- *   OCTOSPI1_IO7  PD6  (AF10)   → B  (row address bit 1)
+ *   OCTOSPI1_IO4  PD4  (AF10)   → G2
+ *   OCTOSPI1_IO5  PC2  (AF10)   → B2
+ *   OCTOSPI1_IO6  PC3  (AF10)   → NC
+ *   OCTOSPI1_IO7  PC0  (AF10)   → NC
  *   OCTOSPI1_CLK  PB2  (AF10)   → CLK
  *
  * External GPIO (Output Push-Pull, no pull, high speed):
+ *   PF2 - A   (HUB75_A_PIN)
+ *   PD0 - B   (HUB75_B_PIN)
  *   PF0 → C   (HUB75_C_PIN)
  *   PF1 → D   (HUB75_D_PIN)
- *   PF2 → LAT (HUB75_LAT_PIN)
- *   PF3 → OE  (HUB75_OE_PIN, active-low)
+ *   PD1 → LAT (HUB75_LAT_PIN)
+ *   PG0 → OE  (HUB75_OE_PIN, active-low)
  ******************************************************************************
  */
 
@@ -45,7 +47,7 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
 /**
  * Software framebuffer — one byte per pixel per row-pair.
  *
- * Byte layout (constant A,B baked in; colour bits set by HUB75_SetPixel):
+ * Byte layout (colour bits set by HUB75_SetPixel):
  *   [7] not assigned
  *   [6] not assigned
  *   [5] B2 — bottom-half blue
@@ -70,8 +72,8 @@ static bool alreadyDisplayed = false;
 /* ── Private helpers ────────────────────────────────────────────────────── */
 
 /**
- * @brief  Drive GPIO address lines C and D.
- * @param  cd  2-bit value: bit0 → C, bit1 → D
+ * @brief  Drive GPIO address lines A, B, C and D.
+ * @param  cd  4-bit value: bit0 → A, bit1 → B, bit2 → C, bit3 → D
  */
 static inline void prv_SetABCD(uint8_t abcd)
 {
@@ -96,15 +98,15 @@ static inline void prv_LatchRow(void)
 
     HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_SET);   /* LAT hi  */
     /* Minimum LAT pulse width is typically ≥20 ns; at 250 MHz one __NOP()   *
-     * ≈ 4 ns — four NOPs ≈ 16 ns.  Add more if your panel requires it.      */
+     * ≈ 4 ns — eight NOPs ≈ 32 ns.  Add more if your panel requires it.      */
     for (int i = 0; i < 8; i++)
     {
     	__NOP();
     }
-    //HAL_Delay(1);
-    HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);   /* LAT lo  */
 
-    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET); /* OE on   */
+    HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);  /* LAT lo  */
+
+    HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);  /* OE on   */
 }
 
 /**
@@ -112,7 +114,7 @@ static inline void prv_LatchRow(void)
  *
  *         The OSPI peripheral clocks one byte per CLK edge.  All 8 IO lines are
  *         driven in parallel so every byte maps directly to the 8 HUB75 signals:
- *         {B, A, B2, G2, R2, B1, G1, R1}.
+ *         {0, 0, B2, G2, R2, B1, G1, R1}.
  *
  * @param  data  Pointer to HUB75_PANEL_WIDTH bytes.
  * @retval HAL_OK / HAL_ERROR
@@ -225,7 +227,7 @@ void HUB75_PrepareRowToDraw(uint8_t abcd)
     // Pixel byte format: bits [1:0]=R, [3:2]=G, [5:4]=B (2-bit channels)
     // Branch on fn is hoisted OUT of the loop — one branch, three tight loops
     if (fn < 1u) {
-        // channel > 0: nonzero ↔️ OR of both bits in each 2-bit field
+        // channel > 0: nonzero ↔ OR of both bits in each 2-bit field
         for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
             uint8_t p0 = row0[i];
             uint8_t p1 = row1[i];
@@ -234,7 +236,7 @@ void HUB75_PrepareRowToDraw(uint8_t abcd)
             out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
         }
     } else if (fn < 3u) {
-        // channel > 1: MSB of field set ↔️ just the upper bit of each 2-bit field
+        // channel > 1: MSB of field set ↔ just the upper bit of each 2-bit field
         for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
             uint8_t p0 = row0[i];
             uint8_t p1 = row1[i];
@@ -243,7 +245,7 @@ void HUB75_PrepareRowToDraw(uint8_t abcd)
             out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
         }
     } else {
-        // channel > 2: must equal 3 ↔️ AND of both bits in each 2-bit field
+        // channel > 2: must equal 3 ↔ AND of both bits in each 2-bit field
         for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
             uint8_t p0 = row0[i];
             uint8_t p1 = row1[i];
@@ -301,7 +303,7 @@ void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
 void HUB75_Clear(void)
 {
     /*
-     * Zero all colour bits
+     * Zero all color bits
      */
     memset(s_framebuf, 0, sizeof(s_framebuf));
     memset(framebuf_row, 0, sizeof(framebuf_row));
