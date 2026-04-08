@@ -283,6 +283,10 @@ void HUB75_SwapDisplayFrame(void) {
 	}
 }
 
+void HUB75_CopyFrame(uint8_t *frame, uint16_t size) {
+	memcpy(s_framebuf[current_draw_frame], frame, size);
+}
+
 void HUB75_SetPixel(uint16_t row, uint16_t col,
                     uint8_t r, uint8_t g, uint8_t b)
 {

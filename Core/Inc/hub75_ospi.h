@@ -84,6 +84,8 @@ void HUB75_StopDrawing(void);
 
 void HUB75_SwapDisplayFrame(void);
 
+void HUB75_CopyFrame(uint8_t *frame, uint16_t size);
+
 /**
  * @brief  Write a 1-bit-per-channel pixel to the software framebuffer.
  *         Call this to build the image; changes are only displayed after
