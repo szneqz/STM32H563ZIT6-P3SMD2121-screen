@@ -64,7 +64,7 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
 static uint8_t s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
 static uint8_t framebuf_row[HUB75_PANEL_WIDTH];
 
-static uint8_t current_draw_frame = 0;
+static uint8_t current_draw_frame = 1;
 static uint8_t current_display_frame = 1;
 static bool isDrawing = false;
 static bool alreadyDisplayed = false;

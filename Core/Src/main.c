@@ -144,13 +144,9 @@ int main(void)
   HUB75_Init(&hxspi1);
 
   DrawProtogen();
-  int counter = 100000;
+
   while (1)
   {
-	  if (counter > 0) {
-	  DrawProtogen();
-	  counter--;
-	  }
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
