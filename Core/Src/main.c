@@ -24,6 +24,7 @@
 #include "hub75_ospi.h"
 #include "nokia3310.h"
 #include "main_logic.h"
+#include "gamepad.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -147,20 +148,34 @@ int main(void)
 
   while (1)
   {
+	GAMEPAD_CalculateClick();
 	int a = 0;
 
-	if (HAL_GPIO_ReadPin(GAMEPAD_UP_GPIO_Port, GAMEPAD_UP_Pin) == GPIO_PIN_RESET)
+	if (GAMEPAD_GetHoldButton(UP))
 		a = 1;
-	if (HAL_GPIO_ReadPin(GAMEPAD_DOWN_GPIO_Port, GAMEPAD_DOWN_Pin) == GPIO_PIN_RESET)
+	if (GAMEPAD_GetHoldButton(DOWN))
 		a = 2;
-	if (HAL_GPIO_ReadPin(GAMEPAD_LEFT_GPIO_Port, GAMEPAD_LEFT_Pin) == GPIO_PIN_RESET)
+	if (GAMEPAD_GetHoldButton(LEFT))
 		a = 3;
-	if (HAL_GPIO_ReadPin(GAMEPAD_RIGHT_GPIO_Port, GAMEPAD_RIGHT_Pin) == GPIO_PIN_RESET)
+	if (GAMEPAD_GetHoldButton(RIGHT))
 		a = 4;
-	if (HAL_GPIO_ReadPin(GAMEPAD_A_GPIO_Port, GAMEPAD_A_Pin) == GPIO_PIN_RESET)
+	if (GAMEPAD_GetHoldButton(A))
 		a = 5;
-	if (HAL_GPIO_ReadPin(GAMEPAD_B_GPIO_Port, GAMEPAD_B_Pin) == GPIO_PIN_RESET)
+	if (GAMEPAD_GetHoldButton(B))
 		a = 6;
+
+	if (GAMEPAD_GetClickButton(UP))
+		GAMEPAD_SetClickReadFlag(UP);
+	if (GAMEPAD_GetClickButton(DOWN))
+		GAMEPAD_SetClickReadFlag(DOWN);
+	if (GAMEPAD_GetClickButton(LEFT))
+		GAMEPAD_SetClickReadFlag(LEFT);
+	if (GAMEPAD_GetClickButton(RIGHT))
+		GAMEPAD_SetClickReadFlag(RIGHT);
+	if (GAMEPAD_GetClickButton(A))
+		GAMEPAD_SetClickReadFlag(A);
+	if (GAMEPAD_GetClickButton(B))
+		GAMEPAD_SetClickReadFlag(B);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
