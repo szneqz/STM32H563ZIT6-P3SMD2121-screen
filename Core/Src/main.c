@@ -147,6 +147,20 @@ int main(void)
 
   while (1)
   {
+	int a = 0;
+
+	if (HAL_GPIO_ReadPin(GAMEPAD_UP_GPIO_Port, GAMEPAD_UP_Pin) == GPIO_PIN_RESET)
+		a = 1;
+	if (HAL_GPIO_ReadPin(GAMEPAD_DOWN_GPIO_Port, GAMEPAD_DOWN_Pin) == GPIO_PIN_RESET)
+		a = 2;
+	if (HAL_GPIO_ReadPin(GAMEPAD_LEFT_GPIO_Port, GAMEPAD_LEFT_Pin) == GPIO_PIN_RESET)
+		a = 3;
+	if (HAL_GPIO_ReadPin(GAMEPAD_RIGHT_GPIO_Port, GAMEPAD_RIGHT_Pin) == GPIO_PIN_RESET)
+		a = 4;
+	if (HAL_GPIO_ReadPin(GAMEPAD_A_GPIO_Port, GAMEPAD_A_Pin) == GPIO_PIN_RESET)
+		a = 5;
+	if (HAL_GPIO_ReadPin(GAMEPAD_B_GPIO_Port, GAMEPAD_B_Pin) == GPIO_PIN_RESET)
+		a = 6;
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -390,7 +404,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOG, DISPLAY_OE_Pin|NOKIA_RST_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, NOKIA_SCE_Pin|GPIO_PIN_4, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(NOKIA_SCE_GPIO_Port, NOKIA_SCE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(NOKIA_DC_GPIO_Port, NOKIA_DC_Pin, GPIO_PIN_RESET);
@@ -434,12 +448,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(DISPLAY_OE_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : NOKIA_SCE_Pin PB4 */
-  GPIO_InitStruct.Pin = NOKIA_SCE_Pin|GPIO_PIN_4;
+  /*Configure GPIO pin : NOKIA_SCE_Pin */
+  GPIO_InitStruct.Pin = NOKIA_SCE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+  HAL_GPIO_Init(NOKIA_SCE_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : UCPD_CC1_Pin UCPD_CC2_Pin */
   GPIO_InitStruct.Pin = UCPD_CC1_Pin|UCPD_CC2_Pin;
@@ -455,12 +469,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF11_ETH;
   HAL_GPIO_Init(RMII_TXD1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : GAMEPAD_2_Pin GAMEPAD_1_Pin */
-  GPIO_InitStruct.Pin = GAMEPAD_2_Pin|GAMEPAD_1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
-
   /*Configure GPIO pin : UCPD_FLT_Pin */
   GPIO_InitStruct.Pin = UCPD_FLT_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
@@ -473,6 +481,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(NOKIA_DC_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : GAMEPAD_UP_Pin GAMEPAD_DOWN_Pin GAMEPAD_LEFT_Pin GAMEPAD_RIGHT_Pin
+                           GAMEPAD_A_Pin */
+  GPIO_InitStruct.Pin = GAMEPAD_UP_Pin|GAMEPAD_DOWN_Pin|GAMEPAD_LEFT_Pin|GAMEPAD_RIGHT_Pin
+                          |GAMEPAD_A_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : USB_FS_N_Pin USB_FS_P_Pin */
   GPIO_InitStruct.Pin = USB_FS_N_Pin|USB_FS_P_Pin;
@@ -489,11 +505,11 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : GAMEPAD_0_Pin GAMEPAD_3_Pin GAMEPAD_4_Pin GAMEPAD_5_Pin */
-  GPIO_InitStruct.Pin = GAMEPAD_0_Pin|GAMEPAD_3_Pin|GAMEPAD_4_Pin|GAMEPAD_5_Pin;
+  /*Configure GPIO pin : GAMEPAD_B_Pin */
+  GPIO_InitStruct.Pin = GAMEPAD_B_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GAMEPAD_B_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : NOKIA_RST_Pin */
   GPIO_InitStruct.Pin = NOKIA_RST_Pin;
