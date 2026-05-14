@@ -104,6 +104,8 @@ void Error_Handler(void);
 #define UCPD_CC2_GPIO_Port GPIOB
 #define RMII_TXD1_Pin GPIO_PIN_15
 #define RMII_TXD1_GPIO_Port GPIOB
+#define NOKIA_LED_Pin GPIO_PIN_14
+#define NOKIA_LED_GPIO_Port GPIOD
 #define UCPD_FLT_Pin GPIO_PIN_7
 #define UCPD_FLT_GPIO_Port GPIOG
 #define NOKIA_DC_Pin GPIO_PIN_7
