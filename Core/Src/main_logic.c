@@ -8,7 +8,7 @@
 
 static int position = 0;
 static uint32_t lastMillis = 0;
-static int maxPositionMillis = 50;
+static int maxPositionMillis = 2;
 
 static uint16_t protogen_face_1[32][128] = {
 	    {0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0005, 0x000E, 0x001E, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001E, 0x001F, 0x001D, 0x001D, 0x001A, 0x0017, 0x0014, 0x000B, 0x0006, 0x0001, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0001, 0x0006, 0x000B, 0x0014, 0x0017, 0x001A, 0x001D, 0x001D, 0x001F, 0x001E, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001E, 0x000F, 0x0006, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000},
@@ -62,44 +62,44 @@ void DrawColorSin(void) {
 				for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)
 				{
 					if (row == sinRow) {
-						HUB75_SetPixel(row, col, 3, 3, 3);
+					    HUB75_SetPixel(row, col, 31, 31, 31);
 					}
 					else {
-						if(row > sinRow) {
-							int v = col % 64;
+					    if(row > sinRow) {
 
-							// Hue: 0–360
-							float h = (v / 64.0f) * 360.0f;
-							float s = 1.0f;
-							float val = (row / 16.0f);
+					        int v = col % 64;
 
-							// HSV → RGB
-							float c = val * s;
-							float x = c * (1 - fabsf(fmodf(h / 60.0f, 2) - 1));
-							float m = val - c;
+					        float h = (v / 64.0f) * 360.0f;
+					        float s = 1.0f;
+					        float val = (row / 16.0f);
 
-							float r1, g1, b1;
+					        float c = val * s;
+					        float x = c * (1 - fabsf(fmodf(h / 60.0f, 2) - 1));
+					        float m = val - c;
 
-							if (h < 60)       { r1 = c; g1 = x; b1 = 0; }
-							else if (h < 120) { r1 = x; g1 = c; b1 = 0; }
-							else if (h < 180) { r1 = 0; g1 = c; b1 = x; }
-							else if (h < 240) { r1 = 0; g1 = x; b1 = c; }
-							else if (h < 300) { r1 = x; g1 = 0; b1 = c; }
-							else              { r1 = c; g1 = 0; b1 = x; }
+					        float r1, g1, b1;
 
-							// scale to 0–3
-							int r = (int)((r1 + m) * 3.0f);
-							r = r > 3 ? 3 : r;
-							int g = (int)((g1 + m) * 3.0f);
-							g = g > 3 ? 3 : g;
-							int b = (int)((b1 + m) * 3.0f);
-							b = b > 3 ? 3 : b;
+					        if (h < 60)       { r1 = c; g1 = x; b1 = 0; }
+					        else if (h < 120) { r1 = x; g1 = c; b1 = 0; }
+					        else if (h < 180) { r1 = 0; g1 = c; b1 = x; }
+					        else if (h < 240) { r1 = 0; g1 = x; b1 = c; }
+					        else if (h < 300) { r1 = x; g1 = 0; b1 = c; }
+					        else              { r1 = c; g1 = 0; b1 = x; }
 
-							HUB75_SetPixel(row, col, r, g, b);
-						}
-						else {
-							HUB75_SetPixel(row, col, 0, 0, 0);
-						}
+					        uint8_t r = (uint8_t)((r1 + m) * 31.0f);
+					        if (r > 31) r = 31;
+
+					        uint8_t g = (uint8_t)((g1 + m) * 31.0f);
+					        if (g > 31) g = 31;
+
+					        uint8_t b = (uint8_t)((b1 + m) * 31.0f);
+					        if (b > 31) b = 31;
+
+					        HUB75_SetPixel(row, col, r, g, b);
+					    }
+					    else {
+					        HUB75_SetPixel(row, col, 0, 0, 0);
+					    }
 					}
 				}
 			}

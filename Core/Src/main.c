@@ -182,6 +182,7 @@ int main(void)
 		GAMEPAD_SetClickReadFlag(A);
 	if (GAMEPAD_GetClickButton(B))
 		GAMEPAD_SetClickReadFlag(B);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
