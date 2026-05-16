@@ -61,7 +61,7 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
  *   row_pair = 0 … HUB75_ROW_PAIRS-1
  *   col      = 0 … HUB75_PANEL_WIDTH-1
  */
-static uint8_t s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
+static uint16_t s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
 static uint8_t framebuf_row[HUB75_PANEL_WIDTH];
 
 static uint8_t current_draw_frame = 1;
@@ -208,57 +208,48 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
     }
 }
 
-// Compact bits at positions {4,2,0} down to {2,1,0}
-// Input s guaranteed to have only bits 0, 2, 4 set (from & 0x15 mask)
-#define COMPACT3(s)  ((uint8_t)((s & 1u) | ((s >> 1u) & 2u) | ((s >> 2u) & 4u)))
-
 void HUB75_PrepareRowToDraw(uint8_t abcd)
 {
-    static uint8_t current_frame_nr = 0;
+    static uint8_t current_plane = 0;
 
-    // Cache row pointers once — avoids re-computing multi-dim array offsets
-    // 'restrict' tells the compiler row0, row1, out don't alias → better codegen
-    const uint8_t * const restrict row0 = s_framebuf[current_display_frame][abcd];
-    const uint8_t * const restrict row1 = s_framebuf[current_display_frame][abcd + HUB75_ROW_PAIRS];
-    uint8_t       * const restrict out  = framebuf_row;
+    const uint16_t * const restrict row0 = s_framebuf[current_display_frame][abcd];
+    const uint16_t * const restrict row1 = s_framebuf[current_display_frame][abcd + HUB75_ROW_PAIRS];
+    uint8_t * const restrict out = framebuf_row;
 
-    const uint8_t fn = current_frame_nr;   // hoist invariant to register
+    const uint8_t plane = current_plane;
 
-    // Pixel byte format: bits [1:0]=R, [3:2]=G, [5:4]=B (2-bit channels)
-    // Branch on fn is hoisted OUT of the loop — one branch, three tight loops
-    if (fn < 1u) {
-        // channel > 0: nonzero ↔ OR of both bits in each 2-bit field
-        for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
-            uint8_t p0 = row0[i];
-            uint8_t p1 = row1[i];
-            uint8_t s0 = (uint8_t)((p0 | (p0 >> 1u)) & 0x15u);
-            uint8_t s1 = (uint8_t)((p1 | (p1 >> 1u)) & 0x15u);
-            out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
+    for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
+
+        uint16_t p0 = row0[i];
+        uint16_t p1 = row1[i];
+
+        // Extract RGB bits for upper row
+        uint8_t r0 = (p0 >> (10 + plane)) & 1u;
+        uint8_t g0 = (p0 >> ( 5 + plane)) & 1u;
+        uint8_t b0 = (p0 >> ( 0 + plane)) & 1u;
+
+        // Extract RGB bits for lower row
+        uint8_t r1 = (p1 >> (10 + plane)) & 1u;
+        uint8_t g1 = (p1 >> ( 5 + plane)) & 1u;
+        uint8_t b1 = (p1 >> ( 0 + plane)) & 1u;
+
+        if (b1 > 0) {
+        	int a = 0;
+        	a = a + 1;
         }
-    } else if (fn < 3u) {
-        // channel > 1: MSB of field set ↔ just the upper bit of each 2-bit field
-        for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
-            uint8_t p0 = row0[i];
-            uint8_t p1 = row1[i];
-            uint8_t s0 = (uint8_t)((p0 >> 1u) & 0x15u);
-            uint8_t s1 = (uint8_t)((p1 >> 1u) & 0x15u);
-            out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
-        }
-    } else {
-        // channel > 2: must equal 3 ↔ AND of both bits in each 2-bit field
-        for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
-            uint8_t p0 = row0[i];
-            uint8_t p1 = row1[i];
-            uint8_t s0 = (uint8_t)((p0 & (p0 >> 1u)) & 0x15u);
-            uint8_t s1 = (uint8_t)((p1 & (p1 >> 1u)) & 0x15u);
-            out[i] = (uint8_t)(COMPACT3(s0) | (COMPACT3(s1) << 3u));
-        }
+
+        out[i] =
+              (r0 << 0)
+            | (g0 << 1)
+            | (b0 << 2)
+            | (r1 << 3)
+            | (g1 << 4)
+            | (b1 << 5);
     }
 
-    #undef COMPACT3
-
-    // Branchless modulo-3 increment
-    current_frame_nr = (fn >= 4u) ? 0u : fn + 1u;
+    current_plane++;
+    if (current_plane >= 5)
+        current_plane = 0;
 }
 
 bool HUB75_StartDrawing(void) {
@@ -283,8 +274,8 @@ void HUB75_SwapDisplayFrame(void) {
 	}
 }
 
-void HUB75_CopyFrame(uint8_t *frame, uint16_t size) {
-	memcpy(s_framebuf[current_draw_frame], frame, size);
+void HUB75_CopyFrame(uint16_t *frame, uint16_t size) {
+	memcpy(s_framebuf[current_draw_frame], frame, (size * 2));
 }
 
 void HUB75_SetPixel(uint16_t row, uint16_t col,
@@ -294,7 +285,7 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
     if (row >= HUB75_PANEL_HEIGHT || col >= HUB75_PANEL_WIDTH) return;
 
     s_framebuf[current_draw_frame][row][col] =
-    		(uint8_t)(((b & 3u) << 4u) | ((g & 3u) << 2u) | (r & 3u));
+    		(uint16_t)(((b & 31u) << 10u) | ((g & 31u) << 5u) | (r & 31u));
 }
 
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
