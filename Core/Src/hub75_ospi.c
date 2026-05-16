@@ -290,7 +290,7 @@ void HUB75_SetPixel(uint16_t row, uint16_t col,
     if (row >= HUB75_PANEL_HEIGHT || col >= HUB75_PANEL_WIDTH) return;
 
     s_framebuf[current_draw_frame][row][col] =
-    		(uint16_t)(((b & 31u) << 10u) | ((g & 31u) << 5u) | (r & 31u));
+    		(uint16_t)(((r & 31u) << 10u) | ((g & 31u) << 5u) | (b & 31u));
 }
 
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)

@@ -116,8 +116,6 @@ bool GAMEPAD_GetClickButton(enum GAMEPAD_BUTTON button) {
 }
 
 void GAMEPAD_SetClickReadFlag(enum GAMEPAD_BUTTON button) {
-	//add autosetting this flag when GAMEPAD_CalculateClick run
-
 	if (button == UP) gamepad_up_click_read = true;
 	if (button == DOWN) gamepad_down_click_read = true;
 	if (button == LEFT) gamepad_left_click_read = true;

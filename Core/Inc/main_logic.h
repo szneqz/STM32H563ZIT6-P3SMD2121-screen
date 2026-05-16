@@ -10,8 +10,10 @@
 
 #include "hub75_ospi.h"
 #include "nokia3310.h"
+#include "gamepad.h"
 
 void DrawProtogen(void);
+void DrawEmblem(uint8_t r, uint8_t g, uint8_t b);
 void DrawColorSin(void);
 
 #endif /* INC_MAIN_LOGIC_H_ */
