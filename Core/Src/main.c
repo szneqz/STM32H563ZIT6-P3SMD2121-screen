@@ -437,7 +437,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = DISPLAY_C_Pin|DISPLAY_D_Pin|DISPLAY_A_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
   /*Configure GPIO pins : RMII_MDC_Pin RMII_RXD0_Pin RMII_RXD1_Pin */
@@ -466,7 +466,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = DISPLAY_OE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(DISPLAY_OE_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : NOKIA_SCE_Pin */
@@ -530,7 +530,7 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pin = DISPLAY_B_Pin|DISPLAY_LATCH_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_HIGH;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
   /*Configure GPIO pin : GAMEPAD_B_Pin */
