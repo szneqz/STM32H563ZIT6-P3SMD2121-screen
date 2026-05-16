@@ -183,6 +183,7 @@ int main(void)
 	if (GAMEPAD_GetClickButton(B))
 		GAMEPAD_SetClickReadFlag(B);
 
+	//DrawColorSin();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

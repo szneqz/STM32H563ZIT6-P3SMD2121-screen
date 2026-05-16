@@ -210,46 +210,51 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
 
 void HUB75_PrepareRowToDraw(uint8_t abcd)
 {
-    static uint8_t current_plane = 0;
+    static uint8_t pwm_step = 0;
 
-    const uint16_t * const restrict row0 = s_framebuf[current_display_frame][abcd];
-    const uint16_t * const restrict row1 = s_framebuf[current_display_frame][abcd + HUB75_ROW_PAIRS];
+    const uint16_t * const restrict row0 =
+        s_framebuf[current_display_frame][abcd];
+
+    const uint16_t * const restrict row1 =
+        s_framebuf[current_display_frame][abcd + HUB75_ROW_PAIRS];
+
     uint8_t * const restrict out = framebuf_row;
-
-    const uint8_t plane = current_plane;
 
     for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
 
         uint16_t p0 = row0[i];
         uint16_t p1 = row1[i];
 
-        // Extract RGB bits for upper row
-        uint8_t r0 = (p0 >> (10 + plane)) & 1u;
-        uint8_t g0 = (p0 >> ( 5 + plane)) & 1u;
-        uint8_t b0 = (p0 >> ( 0 + plane)) & 1u;
+        // 5-bit values (0..31)
+        uint8_t r0 = (p0 >> 10) & 0x1F;
+        uint8_t g0 = (p0 >> 5 ) & 0x1F;
+        uint8_t b0 = (p0 >> 0 ) & 0x1F;
 
-        // Extract RGB bits for lower row
-        uint8_t r1 = (p1 >> (10 + plane)) & 1u;
-        uint8_t g1 = (p1 >> ( 5 + plane)) & 1u;
-        uint8_t b1 = (p1 >> ( 0 + plane)) & 1u;
+        uint8_t r1 = (p1 >> 10) & 0x1F;
+        uint8_t g1 = (p1 >> 5 ) & 0x1F;
+        uint8_t b1 = (p1 >> 0 ) & 0x1F;
 
-        if (b1 > 0) {
-        	int a = 0;
-        	a = a + 1;
-        }
+        // temporal PWM compare
+        uint8_t R0 = (r0 > pwm_step);
+        uint8_t G0 = (g0 > pwm_step);
+        uint8_t B0 = (b0 > pwm_step);
+
+        uint8_t R1 = (r1 > pwm_step);
+        uint8_t G1 = (g1 > pwm_step);
+        uint8_t B1 = (b1 > pwm_step);
 
         out[i] =
-              (r0 << 0)
-            | (g0 << 1)
-            | (b0 << 2)
-            | (r1 << 3)
-            | (g1 << 4)
-            | (b1 << 5);
+              (R0 << 0)
+            | (G0 << 1)
+            | (B0 << 2)
+            | (R1 << 3)
+            | (G1 << 4)
+            | (B1 << 5);
     }
 
-    current_plane++;
-    if (current_plane >= 5)
-        current_plane = 0;
+    pwm_step += 5;
+    if (pwm_step > 31)
+        pwm_step = 0;
 }
 
 bool HUB75_StartDrawing(void) {
