@@ -47,7 +47,7 @@ static uint16_t protogen_face_1[32][128] = {
 
 void DrawProtogen(void) {
 	if(HUB75_StartDrawing()) {
-		HUB75_CopyFrame((uint16_t*)protogen_face_1, 32 * 128);
+		HUB75_CopyFrame((uint16_t*)protogen_face_1, HUB75_PANEL_HEIGHT * HUB75_PANEL_WIDTH);
 		DrawEmblem(0, 0, 0x1F);
 		HUB75_StopDrawing();
 	}
@@ -184,7 +184,7 @@ void DrawColorSin(void) {
 			NOKIA_SetLine(5, 1, 50, 20, true);
 			NOKIA_SetRect(20, 20, 30, 40, false, true);
 			NOKIA_SetCircle(50, 30, 5, true, 5);
-			NOKIA_SetStr("A quick brown fox jumpS over the lazy doG!\n1234567890\\./", 10, 0, true, true);
+			NOKIA_SetStr("A quick brown fox jumpS over the lazy doG!\n1234567890\\./", 10, 0, true, true, true);
 
 			NOKIA_StopDataPrepare();
 			NOKIA_SendData();

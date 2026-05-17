@@ -37,7 +37,7 @@ void NOKIA_SetLine(int x0, int y0, int x1, int y1, bool bw);
 void NOKIA_SetRect(int x0, int y0, int x1, int y1, bool fill, bool bw);
 void NOKIA_SetCircle(int x0, int y0, int r, bool bw, int lineThickness);
 void NOKIA_SetChar(char character, int x, int y, bool bw, bool transparent);
-void NOKIA_SetStr(char * dString, int x, int y, bool bw, bool transparent);
+void NOKIA_SetStr(char * dString, int x, int y, bool bw, bool transparent, bool wrapAround);
 bool NOKIA_StartDataPrepare(void);
 void NOKIA_StopDataPrepare(void);
 bool NOKIA_SwapDisplayFrame(void);

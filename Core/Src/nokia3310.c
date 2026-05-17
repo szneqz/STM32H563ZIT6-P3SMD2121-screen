@@ -314,8 +314,10 @@ void NOKIA_SetChar(char character, int x, int y, bool bw, bool transparent)
 	}
 }
 
-void NOKIA_SetStr(char * dString, int x, int y, bool bw, bool transparent)
+void NOKIA_SetStr(char * dString, int x, int y, bool bw, bool transparent, bool wrapAround)
 {
+	bool stopWriting = false;
+
 	while (*dString != 0x00) // loop until null terminator
 	{
 		NOKIA_SetChar(*dString++, x, y, bw, transparent);
@@ -327,10 +329,20 @@ void NOKIA_SetStr(char * dString, int x, int y, bool bw, bool transparent)
 			}
 		}
 		x++;
+
+		//when not wrapping around and writing the last character stop trying to write
+		if (stopWriting) {
+			break;
+		}
+
 		if (x > (NOKIA_PANEL_WIDTH - 5)) // Enables wrap around
 		{
-			x = 0;
-			y += 8;
+			if (wrapAround) {
+				x = 0;
+				y += 8;
+			} else {
+				stopWriting = true;
+			}
 		}
 	}
 }
