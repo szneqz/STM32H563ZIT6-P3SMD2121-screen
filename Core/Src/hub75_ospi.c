@@ -258,18 +258,23 @@ void HUB75_PrepareRowToDraw(uint8_t abcd)
 }
 
 bool HUB75_StartDrawing(void) {
-	if (current_display_frame == (current_draw_frame ^ 1)) {
-		isDrawing = false;
-		return false;
+	if (!isDrawing) {
+		if (current_display_frame == (current_draw_frame ^ 1)) {
+			isDrawing = false;
+			return false;
+		}
+		current_draw_frame ^= 1;
+		isDrawing = true;
+		return true;
 	}
-	current_draw_frame ^= 1;
-	isDrawing = true;
 	return true;
 }
 
 void HUB75_StopDrawing(void) {
-	isDrawing = false;
-	alreadyDisplayed = false;
+	if (isDrawing) {
+		isDrawing = false;
+		alreadyDisplayed = false;
+	}
 }
 
 void HUB75_SwapDisplayFrame(void) {

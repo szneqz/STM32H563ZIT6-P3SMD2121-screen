@@ -144,7 +144,7 @@ int main(void)
   /* HUB75 driver init */
   HUB75_Init(&hxspi1);
 
-  DrawProtogen();
+  //DrawProtogen();
 
   NOKIA_StartDataPrepare();
   NOKIA_SetChar('B', 20, 20, 1, 0);
@@ -154,36 +154,7 @@ int main(void)
 
   while (1)
   {
-	GAMEPAD_CalculateClick();
-	int a = 0;
-
-	if (GAMEPAD_GetHoldButton(UP))
-		a = 1;
-	if (GAMEPAD_GetHoldButton(DOWN))
-		a = 2;
-	if (GAMEPAD_GetHoldButton(LEFT))
-		a = 3;
-	if (GAMEPAD_GetHoldButton(RIGHT))
-		a = 4;
-	if (GAMEPAD_GetHoldButton(A))
-		a = 5;
-	if (GAMEPAD_GetHoldButton(B))
-		a = 6;
-
-	if (GAMEPAD_GetClickButton(UP))
-		GAMEPAD_SetClickReadFlag(UP);
-	if (GAMEPAD_GetClickButton(DOWN))
-		GAMEPAD_SetClickReadFlag(DOWN);
-	if (GAMEPAD_GetClickButton(LEFT))
-		GAMEPAD_SetClickReadFlag(LEFT);
-	if (GAMEPAD_GetClickButton(RIGHT))
-		GAMEPAD_SetClickReadFlag(RIGHT);
-	if (GAMEPAD_GetClickButton(A))
-		GAMEPAD_SetClickReadFlag(A);
-	if (GAMEPAD_GetClickButton(B))
-		GAMEPAD_SetClickReadFlag(B);
-
-	//DrawColorSin();
+	LogicLoop();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

@@ -12,8 +12,29 @@
 #include "nokia3310.h"
 #include "gamepad.h"
 
-void DrawProtogen(void);
-void DrawEmblem(uint8_t r, uint8_t g, uint8_t b);
-void DrawColorSin(void);
+enum MENU_TYPE {
+	MAIN_MENU, EMOTES_MENU, GAMES_MENU, EMBLEM_MENU, MENU_TYPE_COUNT
+};
+
+enum MAIN_MENU_SELECTIONS {
+	EMOTES, GAMES, EMBLEM, BACKLIGHT, GLITCH, MAIN_MENU_SELECTIONS_COUNT
+};
+
+enum EMOTES_MENU_SELECTIONS {
+	STANDARD_PROTOGEN, EMOTES_MENU_SELECTIONS_COUNT
+};
+
+enum GAMES_MENU_SELECTIONS {
+	GAME_LIST, SNAKE, TETRIS, GAMES_MENU_SELECTIONS_COUNT
+};
+
+enum COLOR_SELECTIONS {
+	RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE, RAINBOW, COLOR_SELECTIONS_COUNT
+};
+
+void LogicLoop(void);
+//void DrawProtogen(void);
+//void DrawEmblem(uint8_t r, uint8_t g, uint8_t b);
+//void DrawColorSin(void);
 
 #endif /* INC_MAIN_LOGIC_H_ */

@@ -6,9 +6,19 @@
  */
 #include "main_logic.h"
 
+static void DrawMainMenu(void);
+static void DrawProtogen(void);
+static void DrawEmblem(uint8_t r, uint8_t g, uint8_t b);
+static void DrawColorSin(void);
+
 static int position = 0;
 static uint32_t lastMillis = 0;
 static int maxPositionMillis = 2;
+
+static bool isNokiaUpdated = false;
+static MENU_TYPE menuType = MAIN_MENU;
+static MAIN_MENU_SELECTIONS mainMenuSelected = EMOTES;
+static bool isInGame = false;
 
 static uint16_t protogen_face_1[32][128] = {
 	    {0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0004, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x000E, 0x0005, 0x0004, 0x0005, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0005, 0x0004, 0x0005, 0x000E, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x0004, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000},
@@ -45,74 +55,128 @@ static uint16_t protogen_face_1[32][128] = {
 	    {0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000}
 	};
 
-void DrawProtogen(void) {
+void LogicLoop(void) {
+	GAMEPAD_CalculateClick();
+
+	if (menuType == MAIN_MENU) {
+		if (!isNokiaUpdated) {
+			DrawMainMenu();
+		}
+
+		if (GAMEPAD_GetClickButton(UP)) {
+			mainMenuSelected = (mainMenuSelected - 1 + MAIN_MENU_SELECTIONS_COUNT) % MAIN_MENU_SELECTIONS_COUNT;
+			GAMEPAD_SetClickReadFlag(UP);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(DOWN)) {
+			mainMenuSelected = (mainMenuSelected + 1) % MAIN_MENU_SELECTIONS_COUNT;
+			GAMEPAD_SetClickReadFlag(DOWN);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(A)) {
+			if (mainMenuSelected == EMOTES) menuType = EMOTES_MENU;
+			else if (mainMenuSelected == GAMES) menuType = GAMES_MENU;
+			else if (mainMenuSelected == EMBLEM) menuType = EMBLEM_MENU;
+
+			GAMEPAD_SetClickReadFlag(A);
+			isNokiaUpdated = false;
+		}
+	}
+
+	if (menuType == EMOTES_MENU || (menuType == GAMES_MENU && !isInGame) || menuType == EMBLEM_MENU) {
+		if (GAMEPAD_GetClickButton(B)) {
+			menuType = MAIN_MENU;
+
+			GAMEPAD_SetClickReadFlag(B);
+			isNokiaUpdated = false;
+		}
+	}
+
+	HUB75_StopDrawing();
+}
+
+static void DrawMainMenu(void) {
+	NOKIA_StartDataPrepare();
+	NOKIA_Clear();
+	NOKIA_SetStr(" Emotki       ", 0, 0, mainMenuSelected != EMOTES, false, false);
+	NOKIA_SetStr(" Gry          ", 0, 8, mainMenuSelected != GAMES, false, false);
+	NOKIA_SetStr(" Emblemat     ", 0, 16, mainMenuSelected != EMBLEM, false, false);
+	NOKIA_SetStr(" Podswietlenie", 0, 24, mainMenuSelected != BACKLIGHT, false, false);
+	NOKIA_SetStr(" Glitch       ", 0, 32, mainMenuSelected != GLITCH, false, false);
+	NOKIA_StopDataPrepare();
+	NOKIA_SendData();
+	isNokiaUpdated = true;
+}
+
+static void DrawProtogen(void) {
 	if(HUB75_StartDrawing()) {
 		HUB75_CopyFrame((uint16_t*)protogen_face_1, HUB75_PANEL_HEIGHT * HUB75_PANEL_WIDTH);
 		DrawEmblem(0, 0, 0x1F);
-		HUB75_StopDrawing();
 	}
 }
 
 //ALWAYS put it between StartDrawing - StopDrawing
-void DrawEmblem(uint8_t r, uint8_t g, uint8_t b) {
-	for (int i = 31; i >= 19; i--) {
-		for (int j = 0; j <= 4; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+static void DrawEmblem(uint8_t r, uint8_t g, uint8_t b) {
+	if(HUB75_StartDrawing()) {
+		for (int i = 31; i >= 19; i--) {
+			for (int j = 0; j <= 4; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
-	}
 
-	for (int i = 31; i >= 20; i--) {
-		for (int j = 5; j <= 6; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+		for (int i = 31; i >= 20; i--) {
+			for (int j = 5; j <= 6; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
-	}
 
-	for (int i = 31; i >= 21; i--) {
-		for (int j = 7; j <= 8; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+		for (int i = 31; i >= 21; i--) {
+			for (int j = 7; j <= 8; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
-	}
 
-	for (int i = 31; i >= 22; i--) {
-		for (int j = 9; j <= 9; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+		for (int i = 31; i >= 22; i--) {
+			for (int j = 9; j <= 9; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
-	}
 
-	for (int i = 31; i >= 23; i--) {
-		for (int j = 10; j <= 10; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+		for (int i = 31; i >= 23; i--) {
+			for (int j = 10; j <= 10; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
-	}
 
-	for (int i = 31; i >= 24; i--) {
-		for (int j = 11; j <= 11; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+		for (int i = 31; i >= 24; i--) {
+			for (int j = 11; j <= 11; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
-	}
 
-	for (int i = 31; i >= 26; i--) {
-		for (int j = 12; j <= 12; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+		for (int i = 31; i >= 26; i--) {
+			for (int j = 12; j <= 12; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
-	}
 
-	for (int i = 31; i >= 28; i--) {
-		for (int j = 13; j <= 13; j++) {
-			HUB75_SetPixel(i, j, r, g, b);
-			HUB75_SetPixel(i, 127 - j, r, g, b);
+		for (int i = 31; i >= 28; i--) {
+			for (int j = 13; j <= 13; j++) {
+				HUB75_SetPixel(i, j, r, g, b);
+				HUB75_SetPixel(i, 127 - j, r, g, b);
+			}
 		}
 	}
 }
 
-void DrawColorSin(void) {
+static void DrawColorSin(void) {
 	if (lastMillis + maxPositionMillis < HAL_GetTick()) {
 		if(HUB75_StartDrawing()) {
 			for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
