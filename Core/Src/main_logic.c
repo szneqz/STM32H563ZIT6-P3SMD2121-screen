@@ -7,8 +7,9 @@
 #include "main_logic.h"
 
 static void DrawMainMenu(void);
+static void DrawEmotesMenu(void);
 static void DrawProtogen(void);
-static void DrawEmblem(uint8_t r, uint8_t g, uint8_t b);
+static void DrawEmblem(uint16_t color);
 static void DrawColorSin(void);
 
 static int position = 0;
@@ -16,8 +17,20 @@ static uint32_t lastMillis = 0;
 static int maxPositionMillis = 2;
 
 static bool isNokiaUpdated = false;
-static MENU_TYPE menuType = MAIN_MENU;
-static MAIN_MENU_SELECTIONS mainMenuSelected = EMOTES;
+
+// Main Menu
+static uint8_t menuType = MAIN_MENU;
+static uint8_t mainMenuSelected = EMOTES;
+
+// Emotes submenu
+static char *emotesNames[] = {" Pro_STD   ", " Pro_Happy ", " Pro_Sad   ", " Test1     ", " Test2     ", " Test3     ", " Test2137  ", " Testel!   "};
+static uint8_t emotesNamesSize = 8;
+static uint8_t markedEmote = 0;
+static uint8_t selectedEmote = 0;
+static uint8_t emotesScrollOffset = 0;
+static bool isLeftMenu = true;
+
+// Games submenu
 static bool isInGame = false;
 
 static uint16_t protogen_face_1[32][128] = {
@@ -58,6 +71,15 @@ static uint16_t protogen_face_1[32][128] = {
 void LogicLoop(void) {
 	GAMEPAD_CalculateClick();
 
+	if (menuType == EMOTES_MENU || (menuType == GAMES_MENU && !isInGame) || menuType == EMBLEM_MENU) {
+		if (GAMEPAD_GetClickButton(B)) {
+			menuType = MAIN_MENU;
+
+			GAMEPAD_SetClickReadFlag(B);
+			isNokiaUpdated = false;
+		}
+	}
+
 	if (menuType == MAIN_MENU) {
 		if (!isNokiaUpdated) {
 			DrawMainMenu();
@@ -83,8 +105,70 @@ void LogicLoop(void) {
 		}
 	}
 
-	if (menuType == EMOTES_MENU || (menuType == GAMES_MENU && !isInGame) || menuType == EMBLEM_MENU) {
-		if (GAMEPAD_GetClickButton(B)) {
+	if (menuType == EMOTES_MENU) {
+		if (!isNokiaUpdated) {
+			DrawEmotesMenu();
+		}
+
+		if (GAMEPAD_GetClickButton(UP)) {
+			if (isLeftMenu) {
+				if (markedEmote == 0) markedEmote = emotesNamesSize - 1;
+				else markedEmote--;
+
+				int8_t offsetedEmote = (int8_t)markedEmote - (int8_t)emotesScrollOffset;
+				if (offsetedEmote < 0) {
+					emotesScrollOffset -= offsetedEmote;
+				}
+				if (offsetedEmote >= 6) {
+					emotesScrollOffset += offsetedEmote - 5;
+				}
+			}
+			GAMEPAD_SetClickReadFlag(UP);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(DOWN)) {
+			if (isLeftMenu) {
+				if (markedEmote == emotesNamesSize - 1) markedEmote = 0;
+				else markedEmote++;
+
+				int8_t offsetedEmote = (int8_t)markedEmote - (int8_t)emotesScrollOffset;
+				if (offsetedEmote < 0) {
+					emotesScrollOffset -= offsetedEmote;
+				}
+				if (offsetedEmote >= 6) {
+					emotesScrollOffset += offsetedEmote - 5;
+				}
+			}
+			GAMEPAD_SetClickReadFlag(DOWN);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(RIGHT)) {
+			//TODO: Add logic to get through LEFT_MENU -> COLOR_SCHEME -> R -> G -> B
+			if (isLeftMenu) {
+				isLeftMenu = false;
+			} else {
+				isLeftMenu = true;
+			}
+			GAMEPAD_SetClickReadFlag(RIGHT);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(LEFT)) {
+			if (isLeftMenu) {
+				isLeftMenu = false;
+			} else {
+				isLeftMenu = true;
+			}
+			GAMEPAD_SetClickReadFlag(LEFT);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(A)) {
+			if (isLeftMenu) {
+				selectedEmote = markedEmote;
+			}
+			GAMEPAD_SetClickReadFlag(A);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(B)) {
 			menuType = MAIN_MENU;
 
 			GAMEPAD_SetClickReadFlag(B);
@@ -108,69 +192,84 @@ static void DrawMainMenu(void) {
 	isNokiaUpdated = true;
 }
 
+static void DrawEmotesMenu(void) {
+	NOKIA_StartDataPrepare();
+	NOKIA_Clear();
+	for (int i = 0; i < emotesNamesSize; i++) {
+		int8_t offsetedi = (int8_t)i - (int8_t)emotesScrollOffset;
+		if (offsetedi >= 0 && offsetedi < 6) {
+			NOKIA_SetStr(emotesNames[i], 0, offsetedi * 8, (i == markedEmote && isLeftMenu), false, false);
+			if (i == selectedEmote) NOKIA_SetStr(">", 0, offsetedi * 8, (i == markedEmote && isLeftMenu), false, false);
+		}
+	}
+	NOKIA_StopDataPrepare();
+	NOKIA_SendData();
+	isNokiaUpdated = true;
+}
+
 static void DrawProtogen(void) {
 	if(HUB75_StartDrawing()) {
 		HUB75_CopyFrame((uint16_t*)protogen_face_1, HUB75_PANEL_HEIGHT * HUB75_PANEL_WIDTH);
-		DrawEmblem(0, 0, 0x1F);
+		DrawEmblem(0x1F);
 	}
 }
 
 //ALWAYS put it between StartDrawing - StopDrawing
-static void DrawEmblem(uint8_t r, uint8_t g, uint8_t b) {
+static void DrawEmblem(uint16_t color) {
 	if(HUB75_StartDrawing()) {
 		for (int i = 31; i >= 19; i--) {
 			for (int j = 0; j <= 4; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 
 		for (int i = 31; i >= 20; i--) {
 			for (int j = 5; j <= 6; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 
 		for (int i = 31; i >= 21; i--) {
 			for (int j = 7; j <= 8; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 
 		for (int i = 31; i >= 22; i--) {
 			for (int j = 9; j <= 9; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 
 		for (int i = 31; i >= 23; i--) {
 			for (int j = 10; j <= 10; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 
 		for (int i = 31; i >= 24; i--) {
 			for (int j = 11; j <= 11; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 
 		for (int i = 31; i >= 26; i--) {
 			for (int j = 12; j <= 12; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 
 		for (int i = 31; i >= 28; i--) {
 			for (int j = 13; j <= 13; j++) {
-				HUB75_SetPixel(i, j, r, g, b);
-				HUB75_SetPixel(i, 127 - j, r, g, b);
+				HUB75_SetPixelColor(j, i, color);
+				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
 	}
@@ -186,7 +285,7 @@ static void DrawColorSin(void) {
 				for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)
 				{
 					if (row == sinRow) {
-					    HUB75_SetPixel(row, col, 31, 31, 31);
+					    HUB75_SetPixelRGB(col, row, 31, 31, 31);
 					}
 					else {
 					    if(row > sinRow) {
@@ -219,10 +318,10 @@ static void DrawColorSin(void) {
 					        uint8_t b = (uint8_t)((b1 + m) * 31.0f);
 					        if (b > 31) b = 31;
 
-					        HUB75_SetPixel(row, col, r, g, b);
+					        HUB75_SetPixelRGB(col, row, r, g, b);
 					    }
 					    else {
-					        HUB75_SetPixel(row, col, 0, 0, 0);
+					        HUB75_SetPixelRGB(col, row, 0, 0, 0);
 					    }
 					}
 				}

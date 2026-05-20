@@ -292,21 +292,30 @@ void HUB75_CopyPreviousFrame(void) {
 	memcpy(s_framebuf[current_draw_frame], s_framebuf[current_display_frame], (HUB75_PANEL_HEIGHT * HUB75_PANEL_WIDTH * 2));
 }
 
-void HUB75_SetPixel(uint16_t row, uint16_t col,
+void HUB75_SetPixelRGB(uint16_t x, uint16_t y,
                     uint8_t r, uint8_t g, uint8_t b)
 {
 	if (!isDrawing) return;
-    if (row >= HUB75_PANEL_HEIGHT || col >= HUB75_PANEL_WIDTH) return;
+    if (y >= HUB75_PANEL_HEIGHT || x >= HUB75_PANEL_WIDTH) return;
 
-    s_framebuf[current_draw_frame][row][col] =
+    s_framebuf[current_draw_frame][y][x] =
     		(uint16_t)(((r & 31u) << 10u) | ((g & 31u) << 5u) | (b & 31u));
+}
+
+void HUB75_SetPixelColor(uint16_t x, uint16_t y,
+				    uint16_t color)
+{
+	if (!isDrawing) return;
+    if (y >= HUB75_PANEL_HEIGHT || x >= HUB75_PANEL_WIDTH) return;
+
+    s_framebuf[current_draw_frame][y][x] = color;
 }
 
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
 {
     for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)
         for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
-            HUB75_SetPixel(row, col, r, g, b);
+            HUB75_SetPixelRGB(row, col, r, g, b);
 }
 
 void HUB75_Clear(void)

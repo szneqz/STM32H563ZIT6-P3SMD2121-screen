@@ -93,14 +93,17 @@ void HUB75_CopyPreviousFrame(void);
  *         Call this to build the image; changes are only displayed after
  *         the next HUB75_Refresh().
  *
- * @param  row   Absolute row  (0 … HUB75_PANEL_HEIGHT-1)
- * @param  col   Column        (0 … HUB75_PANEL_WIDTH-1)
+ * @param  x   Column        (0 … HUB75_PANEL_WIDTH-1)
+ * @param  y   Absolute row  (0 … HUB75_PANEL_HEIGHT-1)
  * @param  r     Red   (0 or 1)
  * @param  g     Green (0 or 1)
  * @param  b     Blue  (0 or 1)
  */
-void HUB75_SetPixel(uint16_t row, uint16_t col,
+void HUB75_SetPixelRGB(uint16_t x, uint16_t y,
                     uint8_t r, uint8_t g, uint8_t b);
+
+void HUB75_SetPixelColor(uint16_t x, uint16_t y,
+				    uint16_t color);
 
 /**
  * @brief  Fill every pixel with the same colour.
