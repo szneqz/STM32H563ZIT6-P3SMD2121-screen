@@ -17,6 +17,9 @@ static uint32_t lastMillis = 0;
 static int maxPositionMillis = 2;
 
 static bool isNokiaUpdated = false;
+									//red,  green,  blue,   yellow, cyan,   magenta, white
+static uint16_t possibleColors[] = {0x7c00, 0x03e0, 0x001f, 0x7fe0, 0x03ff, 0x7c1f, 0x7fff};
+static char colorNames[] = {'R', 'G', 'B', 'Y', 'C', 'M', 'W', '$'};	// $ - rainbow
 
 // Main Menu
 static uint8_t menuType = MAIN_MENU;
@@ -28,7 +31,14 @@ static uint8_t emotesNamesSize = 8;
 static uint8_t markedEmote = 0;
 static uint8_t selectedEmote = 0;
 static uint8_t emotesScrollOffset = 0;
-static bool isLeftMenu = true;
+enum EMOTES_SUB_MENU {
+	EMOTES_EMOTE, EMOTES_COLOR, EMOTES_R, EMOTES_G, EMOTES_B
+};
+static uint8_t emotesSubMenu = EMOTES_EMOTE;
+static uint8_t selectedColor = 2;	//default blue
+static uint8_t pickedRed = 0b00000;
+static uint8_t pickedGreen = 0b00000;
+static uint8_t pickedBlue = 0b11111;
 
 // Games submenu
 static bool isInGame = false;
@@ -111,7 +121,7 @@ void LogicLoop(void) {
 		}
 
 		if (GAMEPAD_GetClickButton(UP)) {
-			if (isLeftMenu) {
+			if (emotesSubMenu == EMOTES_EMOTE) {
 				if (markedEmote == 0) markedEmote = emotesNamesSize - 1;
 				else markedEmote--;
 
@@ -127,7 +137,7 @@ void LogicLoop(void) {
 			isNokiaUpdated = false;
 		}
 		else if (GAMEPAD_GetClickButton(DOWN)) {
-			if (isLeftMenu) {
+			if (emotesSubMenu == EMOTES_EMOTE) {
 				if (markedEmote == emotesNamesSize - 1) markedEmote = 0;
 				else markedEmote++;
 
@@ -143,26 +153,25 @@ void LogicLoop(void) {
 			isNokiaUpdated = false;
 		}
 		else if (GAMEPAD_GetClickButton(RIGHT)) {
-			//TODO: Add logic to get through LEFT_MENU -> COLOR_SCHEME -> R -> G -> B
-			if (isLeftMenu) {
-				isLeftMenu = false;
+			if (emotesSubMenu >= EMOTES_B) {
+				emotesSubMenu = EMOTES_EMOTE;
 			} else {
-				isLeftMenu = true;
+				emotesSubMenu++;
 			}
 			GAMEPAD_SetClickReadFlag(RIGHT);
 			isNokiaUpdated = false;
 		}
 		else if (GAMEPAD_GetClickButton(LEFT)) {
-			if (isLeftMenu) {
-				isLeftMenu = false;
+			if (emotesSubMenu == EMOTES_EMOTE) {
+				emotesSubMenu = EMOTES_B;
 			} else {
-				isLeftMenu = true;
+				emotesSubMenu--;
 			}
 			GAMEPAD_SetClickReadFlag(LEFT);
 			isNokiaUpdated = false;
 		}
 		else if (GAMEPAD_GetClickButton(A)) {
-			if (isLeftMenu) {
+			if (emotesSubMenu == EMOTES_EMOTE) {
 				selectedEmote = markedEmote;
 			}
 			GAMEPAD_SetClickReadFlag(A);
@@ -198,8 +207,8 @@ static void DrawEmotesMenu(void) {
 	for (int i = 0; i < emotesNamesSize; i++) {
 		int8_t offsetedi = (int8_t)i - (int8_t)emotesScrollOffset;
 		if (offsetedi >= 0 && offsetedi < 6) {
-			NOKIA_SetStr(emotesNames[i], 0, offsetedi * 8, (i == markedEmote && isLeftMenu), false, false);
-			if (i == selectedEmote) NOKIA_SetStr(">", 0, offsetedi * 8, (i == markedEmote && isLeftMenu), false, false);
+			NOKIA_SetStr(emotesNames[i], 0, offsetedi * 8, (i == markedEmote && emotesSubMenu == EMOTES_EMOTE), false, false);
+			if (i == selectedEmote) NOKIA_SetStr(">", 0, offsetedi * 8, (i == markedEmote && emotesSubMenu == EMOTES_EMOTE), false, false);
 		}
 	}
 	NOKIA_StopDataPrepare();
