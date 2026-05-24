@@ -74,6 +74,16 @@ extern "C" {
  *         Call once before HUB75_Refresh().
  * @param  hospi  Pointer to the HAL OctoSPI handle (usually &hospi1).
  */
+
+typedef union {
+    uint16_t color;     // Access the entire byte at once
+    struct {
+        uint16_t b : 5; // 5 bits
+        uint16_t g : 5; // 5 bits
+        uint16_t r : 5; // 5 bits
+    } bits;             // Total: 5 + 5 + 5 = 15 bits
+} ColorBitfield;
+
 void HUB75_Init(XSPI_HandleTypeDef *hospi);
 
 void HUB75_PrepareRowToDraw(uint8_t abcd);
@@ -84,7 +94,7 @@ void HUB75_StopDrawing(void);
 
 void HUB75_SwapDisplayFrame(void);
 
-void HUB75_CopyFrame(uint16_t *frame, uint16_t size);
+void HUB75_CopyFrame(ColorBitfield *frame, uint16_t size);
 
 void HUB75_CopyPreviousFrame(void);
 
@@ -103,7 +113,7 @@ void HUB75_SetPixelRGB(uint16_t x, uint16_t y,
                     uint8_t r, uint8_t g, uint8_t b);
 
 void HUB75_SetPixelColor(uint16_t x, uint16_t y,
-				    uint16_t color);
+					ColorBitfield color);
 
 /**
  * @brief  Fill every pixel with the same colour.

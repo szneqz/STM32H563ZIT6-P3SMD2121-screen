@@ -61,7 +61,7 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
  *   row_pair = 0 … HUB75_ROW_PAIRS-1
  *   col      = 0 … HUB75_PANEL_WIDTH-1
  */
-static uint16_t s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
+static ColorBitfield s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
 static uint8_t framebuf_row[HUB75_PANEL_WIDTH];
 
 static uint8_t current_draw_frame = 1;
@@ -212,36 +212,23 @@ void HUB75_PrepareRowToDraw(uint8_t abcd)
 {
     static uint8_t pwm_step = 0;
 
-    const uint16_t * const restrict row0 =
+    const ColorBitfield * const restrict row0 =
         s_framebuf[current_display_frame][abcd];
 
-    const uint16_t * const restrict row1 =
+    const ColorBitfield * const restrict row1 =
         s_framebuf[current_display_frame][abcd + HUB75_ROW_PAIRS];
 
     uint8_t * const restrict out = framebuf_row;
 
     for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
-
-        uint16_t p0 = row0[i];
-        uint16_t p1 = row1[i];
-
-        // 5-bit values (0..31)
-        uint8_t r0 = (p0 >> 10) & 0x1F;
-        uint8_t g0 = (p0 >> 5 ) & 0x1F;
-        uint8_t b0 = (p0 >> 0 ) & 0x1F;
-
-        uint8_t r1 = (p1 >> 10) & 0x1F;
-        uint8_t g1 = (p1 >> 5 ) & 0x1F;
-        uint8_t b1 = (p1 >> 0 ) & 0x1F;
-
         // temporal PWM compare
-        uint8_t R0 = (r0 > pwm_step);
-        uint8_t G0 = (g0 > pwm_step);
-        uint8_t B0 = (b0 > pwm_step);
+        uint8_t R0 = (row0[i].bits.r > pwm_step);
+        uint8_t G0 = (row0[i].bits.g > pwm_step);
+        uint8_t B0 = (row0[i].bits.b > pwm_step);
 
-        uint8_t R1 = (r1 > pwm_step);
-        uint8_t G1 = (g1 > pwm_step);
-        uint8_t B1 = (b1 > pwm_step);
+        uint8_t R1 = (row1[i].bits.r > pwm_step);
+        uint8_t G1 = (row1[i].bits.g  > pwm_step);
+        uint8_t B1 = (row1[i].bits.b  > pwm_step);
 
         out[i] =
               (R0 << 0)
@@ -284,7 +271,7 @@ void HUB75_SwapDisplayFrame(void) {
 	}
 }
 
-void HUB75_CopyFrame(uint16_t *frame, uint16_t size) {
+void HUB75_CopyFrame(ColorBitfield *frame, uint16_t size) {
 	memcpy(s_framebuf[current_draw_frame], frame, (size * 2));
 }
 
@@ -298,12 +285,13 @@ void HUB75_SetPixelRGB(uint16_t x, uint16_t y,
 	if (!isDrawing) return;
     if (y >= HUB75_PANEL_HEIGHT || x >= HUB75_PANEL_WIDTH) return;
 
-    s_framebuf[current_draw_frame][y][x] =
-    		(uint16_t)(((r & 31u) << 10u) | ((g & 31u) << 5u) | (b & 31u));
+    s_framebuf[current_draw_frame][y][x].bits.r = r;
+    s_framebuf[current_draw_frame][y][x].bits.g = g;
+    s_framebuf[current_draw_frame][y][x].bits.b = b;
 }
 
 void HUB75_SetPixelColor(uint16_t x, uint16_t y,
-				    uint16_t color)
+						ColorBitfield color)
 {
 	if (!isDrawing) return;
     if (y >= HUB75_PANEL_HEIGHT || x >= HUB75_PANEL_WIDTH) return;
