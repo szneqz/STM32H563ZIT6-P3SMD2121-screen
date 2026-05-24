@@ -7,26 +7,27 @@
 #include "main_logic.h"
 
 static void DrawMainMenu(void);
+static void LogicMainMenu(void);
 static void DrawEmotesMenu(void);
+static void LogicEmotesMenu(void);
+static void ApplyEmoteColor(void);
+static void AssignRealEmoteColor(void);
+static uint16_t RainbowColorChange(void);
 static void DrawProtogen(void);
 static void DrawEmblem(uint16_t color);
-static void DrawColorSin(void);
-
-static int position = 0;
-static uint32_t lastMillis = 0;
-static int maxPositionMillis = 2;
 
 static bool isNokiaUpdated = false;
-									//red,  green,  blue,   yellow, cyan,   magenta, white
-static uint16_t possibleColors[] = {0x7c00, 0x03e0, 0x001f, 0x7fe0, 0x03ff, 0x7c1f, 0x7fff};
-static char colorNames[] = {'R', 'G', 'B', 'Y', 'C', 'M', 'W', '$'};	// $ - rainbow
+									//red,  green,  blue,   cyan,   magenta,yellow, white
+static const uint16_t possibleColors[] = {0x7c00, 0x03e0, 0x001f, 0x03ff, 0x7c1f, 0x7fe0, 0x7fff};
+static const char colorNames[] = {'R', 'G', 'B', 'C', 'M', 'Y', 'W', '$'};	// $ - rainbow
+static const uint16_t maxMillisRainbowStep = 5;
 
 // Main Menu
 static uint8_t menuType = MAIN_MENU;
 static uint8_t mainMenuSelected = EMOTES;
 
 // Emotes submenu
-static char *emotesNames[] = {" Pro_STD   ", " Pro_Happy ", " Pro_Sad   ", " Test1     ", " Test2     ", " Test3     ", " Test2137  ", " Testel!   "};
+static char *emotesNames[] = {" Pro_STD   ", " Pro_Happy ", " Pro_Sad   ", " Pro_^^    ", " Test2     ", " Test3     ", " Test2137  ", " Testel!   "};
 static uint8_t emotesNamesSize = 8;
 static uint8_t markedEmote = 0;
 static uint8_t selectedEmote = 0;
@@ -35,13 +36,17 @@ enum EMOTES_SUB_MENU {
 	EMOTES_EMOTE, EMOTES_COLOR, EMOTES_R, EMOTES_G, EMOTES_B
 };
 static uint8_t emotesSubMenu = EMOTES_EMOTE;
-static uint8_t selectedColor = 2;	//default blue
-static uint8_t pickedRed = 0b00000;
-static uint8_t pickedGreen = 0b00000;
-static uint8_t pickedBlue = 0b11111;
+static uint8_t selectedEmoteColor = 2;	//default blue
+static bool isEmoteRainbowMode = false;
+static uint8_t pickedEmoteRed = 0b00000;
+static uint8_t pickedEmoteGreen = 0b00000;
+static uint8_t pickedEmoteBlue = 0b11111;
 
 // Games submenu
 static bool isInGame = false;
+
+// Emblem submenu
+static bool isEmblemRainbowMode = false;
 
 static uint16_t protogen_face_1[32][128] = {
 	    {0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0004, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x000E, 0x0005, 0x0004, 0x0005, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0005, 0x0004, 0x0005, 0x000E, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x001F, 0x0004, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000, 0x0000},
@@ -91,96 +96,33 @@ void LogicLoop(void) {
 	}
 
 	if (menuType == MAIN_MENU) {
-		if (!isNokiaUpdated) {
-			DrawMainMenu();
-		}
-
-		if (GAMEPAD_GetClickButton(UP)) {
-			mainMenuSelected = (mainMenuSelected - 1 + MAIN_MENU_SELECTIONS_COUNT) % MAIN_MENU_SELECTIONS_COUNT;
-			GAMEPAD_SetClickReadFlag(UP);
-			isNokiaUpdated = false;
-		}
-		else if (GAMEPAD_GetClickButton(DOWN)) {
-			mainMenuSelected = (mainMenuSelected + 1) % MAIN_MENU_SELECTIONS_COUNT;
-			GAMEPAD_SetClickReadFlag(DOWN);
-			isNokiaUpdated = false;
-		}
-		else if (GAMEPAD_GetClickButton(A)) {
-			if (mainMenuSelected == EMOTES) menuType = EMOTES_MENU;
-			else if (mainMenuSelected == GAMES) menuType = GAMES_MENU;
-			else if (mainMenuSelected == EMBLEM) menuType = EMBLEM_MENU;
-
-			GAMEPAD_SetClickReadFlag(A);
-			isNokiaUpdated = false;
-		}
+		LogicMainMenu();
 	}
 
 	if (menuType == EMOTES_MENU) {
-		if (!isNokiaUpdated) {
-			DrawEmotesMenu();
-		}
+		LogicEmotesMenu();
+	}
 
-		if (GAMEPAD_GetClickButton(UP)) {
-			if (emotesSubMenu == EMOTES_EMOTE) {
-				if (markedEmote == 0) markedEmote = emotesNamesSize - 1;
-				else markedEmote--;
+	if (isEmoteRainbowMode || isEmblemRainbowMode) {
+		static uint16_t lastRainbowColor = 0;
+		uint16_t rainbowColor = RainbowColorChange();
+		if (rainbowColor != lastRainbowColor) {
+			uint8_t r = (rainbowColor & 0x7c00) >> 10;
+			uint8_t g = (rainbowColor & 0x03e0) >> 5;
+			uint8_t b = (rainbowColor & 0x001f);
+			lastRainbowColor = rainbowColor;
 
-				int8_t offsetedEmote = (int8_t)markedEmote - (int8_t)emotesScrollOffset;
-				if (offsetedEmote < 0) {
-					emotesScrollOffset -= offsetedEmote;
-				}
-				if (offsetedEmote >= 6) {
-					emotesScrollOffset += offsetedEmote - 5;
-				}
+			if (isEmoteRainbowMode) {
+				pickedEmoteRed = r;
+				pickedEmoteGreen = g;
+				pickedEmoteBlue = b;
+				AssignRealEmoteColor();
 			}
-			GAMEPAD_SetClickReadFlag(UP);
-			isNokiaUpdated = false;
-		}
-		else if (GAMEPAD_GetClickButton(DOWN)) {
-			if (emotesSubMenu == EMOTES_EMOTE) {
-				if (markedEmote == emotesNamesSize - 1) markedEmote = 0;
-				else markedEmote++;
 
-				int8_t offsetedEmote = (int8_t)markedEmote - (int8_t)emotesScrollOffset;
-				if (offsetedEmote < 0) {
-					emotesScrollOffset -= offsetedEmote;
-				}
-				if (offsetedEmote >= 6) {
-					emotesScrollOffset += offsetedEmote - 5;
-				}
+			if (isEmblemRainbowMode) {
+				//TODO:
 			}
-			GAMEPAD_SetClickReadFlag(DOWN);
-			isNokiaUpdated = false;
-		}
-		else if (GAMEPAD_GetClickButton(RIGHT)) {
-			if (emotesSubMenu >= EMOTES_B) {
-				emotesSubMenu = EMOTES_EMOTE;
-			} else {
-				emotesSubMenu++;
-			}
-			GAMEPAD_SetClickReadFlag(RIGHT);
-			isNokiaUpdated = false;
-		}
-		else if (GAMEPAD_GetClickButton(LEFT)) {
-			if (emotesSubMenu == EMOTES_EMOTE) {
-				emotesSubMenu = EMOTES_B;
-			} else {
-				emotesSubMenu--;
-			}
-			GAMEPAD_SetClickReadFlag(LEFT);
-			isNokiaUpdated = false;
-		}
-		else if (GAMEPAD_GetClickButton(A)) {
-			if (emotesSubMenu == EMOTES_EMOTE) {
-				selectedEmote = markedEmote;
-			}
-			GAMEPAD_SetClickReadFlag(A);
-			isNokiaUpdated = false;
-		}
-		else if (GAMEPAD_GetClickButton(B)) {
-			menuType = MAIN_MENU;
 
-			GAMEPAD_SetClickReadFlag(B);
 			isNokiaUpdated = false;
 		}
 	}
@@ -201,6 +143,31 @@ static void DrawMainMenu(void) {
 	isNokiaUpdated = true;
 }
 
+static void LogicMainMenu(void) {
+	if (!isNokiaUpdated) {
+		DrawMainMenu();
+	}
+
+	if (GAMEPAD_GetClickButton(UP)) {
+		mainMenuSelected = (mainMenuSelected - 1 + MAIN_MENU_SELECTIONS_COUNT) % MAIN_MENU_SELECTIONS_COUNT;
+		GAMEPAD_SetClickReadFlag(UP);
+		isNokiaUpdated = false;
+	}
+	else if (GAMEPAD_GetClickButton(DOWN)) {
+		mainMenuSelected = (mainMenuSelected + 1) % MAIN_MENU_SELECTIONS_COUNT;
+		GAMEPAD_SetClickReadFlag(DOWN);
+		isNokiaUpdated = false;
+	}
+	else if (GAMEPAD_GetClickButton(A)) {
+		if (mainMenuSelected == EMOTES) menuType = EMOTES_MENU;
+		else if (mainMenuSelected == GAMES) menuType = GAMES_MENU;
+		else if (mainMenuSelected == EMBLEM) menuType = EMBLEM_MENU;
+
+		GAMEPAD_SetClickReadFlag(A);
+		isNokiaUpdated = false;
+	}
+}
+
 static void DrawEmotesMenu(void) {
 	NOKIA_StartDataPrepare();
 	NOKIA_Clear();
@@ -211,9 +178,192 @@ static void DrawEmotesMenu(void) {
 			if (i == selectedEmote) NOKIA_SetStr(">", 0, offsetedi * 8, (i == markedEmote && emotesSubMenu == EMOTES_EMOTE), false, false);
 		}
 	}
+
+	NOKIA_SetChar(colorNames[selectedEmoteColor], 12 * 6, 8, emotesSubMenu == EMOTES_COLOR, false);
+	char rStr[3] = "0";
+	char gStr[3] = "0";
+	char bStr[3] = "0";
+
+	sprintf(rStr, "%d", pickedEmoteRed);
+	sprintf(gStr, "%d", pickedEmoteGreen);
+	sprintf(bStr, "%d", pickedEmoteBlue);
+
+	NOKIA_SetStr(rStr, 12 * 6, 3 * 8, emotesSubMenu == EMOTES_R, false, false);
+	NOKIA_SetStr(gStr, 12 * 6, 4 * 8, emotesSubMenu == EMOTES_G, false, false);
+	NOKIA_SetStr(bStr, 12 * 6, 5 * 8, emotesSubMenu == EMOTES_B, false, false);
+
 	NOKIA_StopDataPrepare();
 	NOKIA_SendData();
 	isNokiaUpdated = true;
+}
+
+static void LogicEmotesMenu(void) {
+	if (!isNokiaUpdated) {
+		DrawEmotesMenu();
+	}
+
+	if (GAMEPAD_GetClickButton(UP)) {
+		if (emotesSubMenu == EMOTES_EMOTE) {
+			if (markedEmote == 0) markedEmote = emotesNamesSize - 1;
+			else markedEmote--;
+
+			int8_t offsetedEmote = (int8_t)markedEmote - (int8_t)emotesScrollOffset;
+			if (offsetedEmote < 0) {
+				emotesScrollOffset -= offsetedEmote;
+			}
+			if (offsetedEmote >= 6) {
+				emotesScrollOffset += offsetedEmote - 5;
+			}
+		} else if (emotesSubMenu == EMOTES_COLOR) {
+			if (selectedEmoteColor == 0) selectedEmoteColor = 7;
+			else selectedEmoteColor--;
+		} else if (!isEmoteRainbowMode) {
+			if (emotesSubMenu == EMOTES_R) {
+				if (pickedEmoteRed >= 31) pickedEmoteRed = 0;
+				else pickedEmoteRed++;
+				AssignRealEmoteColor();
+			} else if (emotesSubMenu == EMOTES_G) {
+				if (pickedEmoteGreen >= 31) pickedEmoteGreen = 0;
+				else pickedEmoteGreen++;
+				AssignRealEmoteColor();
+			} else if (emotesSubMenu == EMOTES_B) {
+				if (pickedEmoteBlue >= 31) pickedEmoteBlue = 0;
+				else pickedEmoteBlue++;
+				AssignRealEmoteColor();
+			}
+		}
+		GAMEPAD_SetClickReadFlag(UP);
+		isNokiaUpdated = false;
+	}
+	else if (GAMEPAD_GetClickButton(DOWN)) {
+		if (emotesSubMenu == EMOTES_EMOTE) {
+			if (markedEmote == emotesNamesSize - 1) markedEmote = 0;
+			else markedEmote++;
+
+			int8_t offsetedEmote = (int8_t)markedEmote - (int8_t)emotesScrollOffset;
+			if (offsetedEmote < 0) {
+				emotesScrollOffset -= offsetedEmote;
+			}
+			if (offsetedEmote >= 6) {
+				emotesScrollOffset += offsetedEmote - 5;
+			}
+		} else if (emotesSubMenu == EMOTES_COLOR) {
+			if (selectedEmoteColor >= 7) selectedEmoteColor = 0;
+			else selectedEmoteColor++;
+		} else if (!isEmoteRainbowMode) {
+			if (emotesSubMenu == EMOTES_R) {
+				if (pickedEmoteRed == 0) pickedEmoteRed = 31;
+				else pickedEmoteRed--;
+				AssignRealEmoteColor();
+			} else if (emotesSubMenu == EMOTES_G) {
+				if (pickedEmoteGreen == 0) pickedEmoteGreen = 31;
+				else pickedEmoteGreen--;
+				AssignRealEmoteColor();
+			} else if (emotesSubMenu == EMOTES_B) {
+				if (pickedEmoteBlue == 0) pickedEmoteBlue = 31;
+				else pickedEmoteBlue--;
+				AssignRealEmoteColor();
+			}
+		}
+		GAMEPAD_SetClickReadFlag(DOWN);
+		isNokiaUpdated = false;
+	}
+	else if (GAMEPAD_GetClickButton(RIGHT)) {
+		if (emotesSubMenu >= EMOTES_B) {
+			emotesSubMenu = EMOTES_EMOTE;
+		} else {
+			emotesSubMenu++;
+		}
+		GAMEPAD_SetClickReadFlag(RIGHT);
+		isNokiaUpdated = false;
+	}
+	else if (GAMEPAD_GetClickButton(LEFT)) {
+		if (emotesSubMenu == EMOTES_EMOTE) {
+			emotesSubMenu = EMOTES_B;
+		} else {
+			emotesSubMenu--;
+		}
+		GAMEPAD_SetClickReadFlag(LEFT);
+		isNokiaUpdated = false;
+	}
+	else if (GAMEPAD_GetClickButton(A)) {
+		if (emotesSubMenu == EMOTES_EMOTE) {
+			selectedEmote = markedEmote;
+		} else if (emotesSubMenu == EMOTES_COLOR) {
+			ApplyEmoteColor();
+		}
+		GAMEPAD_SetClickReadFlag(A);
+		isNokiaUpdated = false;
+	}
+}
+
+static void ApplyEmoteColor(void) {
+	if (selectedEmoteColor != 7) {
+		//everything except rainbow
+		isEmoteRainbowMode = false;
+		pickedEmoteRed = (possibleColors[selectedEmoteColor] & 0x7c00) >> 10;
+		pickedEmoteGreen = (possibleColors[selectedEmoteColor] & 0x03e0) >> 5;
+		pickedEmoteBlue = (possibleColors[selectedEmoteColor] & 0x001f);
+		AssignRealEmoteColor();
+	} else {
+		isEmoteRainbowMode = true;
+	}
+}
+
+static void AssignRealEmoteColor(void) {
+	//TODO: code that gets pickedRGB and assign it to HUB75
+}
+
+static uint16_t RainbowColorChange(void) {
+	static uint8_t hueDirection = 0;	//0 - G grow, 1 - R decline, 2 - B grow, 3 - G decline, 4 - R grow, 5 - B decline
+	static uint8_t r = 31;
+	static uint8_t g = 0;
+	static uint8_t b = 0;
+	static uint32_t lastMillis = 0;
+	uint32_t actualMillis = HAL_GetTick();
+
+	while (actualMillis - lastMillis > maxMillisRainbowStep) {
+		lastMillis += maxMillisRainbowStep;
+
+		switch(hueDirection) {
+		case 0:
+			g++;
+			if (g >= 31) {
+				g = 31;
+				hueDirection = 1;
+			}
+			break;
+		case 1:
+			r--;
+			if (r == 0) {
+				hueDirection = 2;
+			}
+		case 2:
+			b++;
+			if (b >= 31) {
+				b = 31;
+				hueDirection = 3;
+			}
+		case 3:
+			g--;
+			if (g == 0) {
+				hueDirection = 4;
+			}
+		case 4:
+			r++;
+			if (r >= 31) {
+				r = 31;
+				hueDirection = 5;
+			}
+		case 5:
+			b--;
+			if (b == 0) {
+				hueDirection = 0;
+			}
+		}
+	}
+
+	return (uint16_t)(((r & 31u) << 10u) | ((g & 31u) << 5u) | (b & 31u));
 }
 
 static void DrawProtogen(void) {
@@ -280,92 +430,6 @@ static void DrawEmblem(uint16_t color) {
 				HUB75_SetPixelColor(j, i, color);
 				HUB75_SetPixelColor(127 - j , i, color);
 			}
-		}
-	}
-}
-
-static void DrawColorSin(void) {
-	if (lastMillis + maxPositionMillis < HAL_GetTick()) {
-		if(HUB75_StartDrawing()) {
-			for (uint16_t col = 0; col < HUB75_PANEL_WIDTH; col++)
-			{
-				int sinRow = sin(((double)(col + position) / HUB75_PANEL_WIDTH) * 3.1415 * 6) * (HUB75_PANEL_HEIGHT / 2) + (HUB75_PANEL_HEIGHT / 2);
-
-				for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)
-				{
-					if (row == sinRow) {
-					    HUB75_SetPixelRGB(col, row, 31, 31, 31);
-					}
-					else {
-					    if(row > sinRow) {
-
-					        int v = col % 64;
-
-					        float h = (v / 64.0f) * 360.0f;
-					        float s = 1.0f;
-					        float val = (row / 16.0f);
-
-					        float c = val * s;
-					        float x = c * (1 - fabsf(fmodf(h / 60.0f, 2) - 1));
-					        float m = val - c;
-
-					        float r1, g1, b1;
-
-					        if (h < 60)       { r1 = c; g1 = x; b1 = 0; }
-					        else if (h < 120) { r1 = x; g1 = c; b1 = 0; }
-					        else if (h < 180) { r1 = 0; g1 = c; b1 = x; }
-					        else if (h < 240) { r1 = 0; g1 = x; b1 = c; }
-					        else if (h < 300) { r1 = x; g1 = 0; b1 = c; }
-					        else              { r1 = c; g1 = 0; b1 = x; }
-
-					        uint8_t r = (uint8_t)((r1 + m) * 31.0f);
-					        if (r > 31) r = 31;
-
-					        uint8_t g = (uint8_t)((g1 + m) * 31.0f);
-					        if (g > 31) g = 31;
-
-					        uint8_t b = (uint8_t)((b1 + m) * 31.0f);
-					        if (b > 31) b = 31;
-
-					        HUB75_SetPixelRGB(col, row, r, g, b);
-					    }
-					    else {
-					        HUB75_SetPixelRGB(col, row, 0, 0, 0);
-					    }
-					}
-				}
-			}
-			HUB75_StopDrawing();
-		}
-
-		if(NOKIA_StartDataPrepare()) {
-			for (uint16_t col = 0; col < NOKIA_PANEL_WIDTH; col++)
-			{
-				int sinRow = sin(((double)(col + position) / NOKIA_PANEL_WIDTH) * 3.1415 * 6) * (NOKIA_PANEL_HEIGHT / 2) + (NOKIA_PANEL_HEIGHT / 2);
-
-				for (uint16_t row = 0; row < NOKIA_PANEL_HEIGHT; row++) {
-					if (row == sinRow) {
-						NOKIA_SetPixel(col, row, true);
-					}
-					else {
-						NOKIA_SetPixel(col, row, false);
-					}
-				}
-			}
-
-			NOKIA_SetLine(5, 1, 50, 20, true);
-			NOKIA_SetRect(20, 20, 30, 40, false, true);
-			NOKIA_SetCircle(50, 30, 5, true, 5);
-			NOKIA_SetStr("A quick brown fox jumpS over the lazy doG!\n1234567890\\./", 10, 0, true, true, true);
-
-			NOKIA_StopDataPrepare();
-			NOKIA_SendData();
-		}
-
-		lastMillis = HAL_GetTick();
-		position++;
-		if (position >= HUB75_PANEL_WIDTH) {
-			position = 0;
 		}
 	}
 }
