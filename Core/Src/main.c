@@ -152,6 +152,8 @@ int main(void)
   NOKIA_SendData();
   HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_SET);
 
+  LogicInit();
+
   while (1)
   {
 	LogicLoop();

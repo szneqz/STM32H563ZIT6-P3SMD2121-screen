@@ -115,6 +115,8 @@ void HUB75_SetPixelRGB(uint16_t x, uint16_t y,
 void HUB75_SetPixelColor(uint16_t x, uint16_t y,
 					ColorBitfield color);
 
+void HUB75_ChangeDrawFrameColor(ColorBitfield color);
+
 /**
  * @brief  Fill every pixel with the same colour.
  */

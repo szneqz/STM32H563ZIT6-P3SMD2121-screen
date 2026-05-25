@@ -299,6 +299,19 @@ void HUB75_SetPixelColor(uint16_t x, uint16_t y,
     s_framebuf[current_draw_frame][y][x] = color;
 }
 
+void HUB75_ChangeDrawFrameColor(ColorBitfield color) {
+	for (int y = 0; y < HUB75_PANEL_HEIGHT; y++) {
+		for (int x = 0; x < HUB75_PANEL_WIDTH; x++) {
+			if (s_framebuf[current_draw_frame][y][x].bits.b != 0) {
+				float strength = (float)s_framebuf[current_draw_frame][y][x].bits.b / 0x1f;
+				s_framebuf[current_draw_frame][y][x].bits.r = color.bits.r * strength;
+				s_framebuf[current_draw_frame][y][x].bits.g = color.bits.g * strength;
+				s_framebuf[current_draw_frame][y][x].bits.b = color.bits.b * strength;
+			}
+		}
+	}
+}
+
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
 {
     for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)

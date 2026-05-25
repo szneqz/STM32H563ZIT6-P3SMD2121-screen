@@ -32,6 +32,7 @@ enum COLOR_SELECTIONS {
 	RED, GREEN, BLUE, YELLOW, CYAN, MAGENTA, WHITE, RAINBOW, COLOR_SELECTIONS_COUNT
 };
 
+void LogicInit(void);
 void LogicLoop(void);
 
 #endif /* INC_MAIN_LOGIC_H_ */
