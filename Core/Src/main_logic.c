@@ -22,7 +22,7 @@ static bool isNokiaUpdated = false;
 											  //red,     green,    blue,     cyan,     magenta,  yellow,   white,    nocolor
 static const ColorBitfield possibleColors[] = {{0x7c00}, {0x03e0}, {0x001f}, {0x03ff}, {0x7c1f}, {0x7fe0}, {0x7fff}, {0x0000}};
 static const char colorNames[] = {'R', 'G', 'B', 'C', 'M', 'Y', 'W', 'N', '$'};	// N - no color, $ - rainbow
-static const uint16_t maxMillisRainbowStep = 5;
+static const uint32_t maxMillisRainbowStep = 5;
 
 // Main Menu
 static uint8_t menuType = MAIN_MENU;
@@ -362,7 +362,7 @@ void LogicLoop(void) {
 		static ColorBitfield lastRainbowColor = {0x0000};
 		ColorBitfield rainbowColor = RainbowColorChange();
 		if (rainbowColor.color != lastRainbowColor.color) {
-			lastRainbowColor = rainbowColor;
+			lastRainbowColor.color = rainbowColor.color;
 
 			if (isEmoteRainbowMode) {
 				pickedEmoteRed = rainbowColor.bits.r;
@@ -576,7 +576,7 @@ static void AssignRealEmoteColor(void) {
 }
 
 static ColorBitfield RainbowColorChange(void) {
-	static uint8_t hueDirection = 0;	//0 - G grow, 1 - R decline, 2 - B grow, 3 - G decline, 4 - R grow, 5 - B decline
+	static uint8_t hueDirection = 4;	//0 - G grow, 1 - R decline, 2 - B grow, 3 - G decline, 4 - R grow, 5 - B decline
 	static ColorBitfield rgb = {0x001f};
 	static uint32_t lastMillis = 0;
 	uint32_t actualMillis = HAL_GetTick();
@@ -594,7 +594,8 @@ static ColorBitfield RainbowColorChange(void) {
 			break;
 		case 1:
 			rgb.bits.r--;
-			if (rgb.bits.r == 0) {
+			if (rgb.bits.r == 0 || rgb.bits.r >= 32) {
+				rgb.bits.r = 0;
 				hueDirection = 2;
 			}
 		case 2:
@@ -605,7 +606,8 @@ static ColorBitfield RainbowColorChange(void) {
 			}
 		case 3:
 			rgb.bits.g--;
-			if (rgb.bits.g == 0) {
+			if (rgb.bits.g == 0 || rgb.bits.g >= 32) {
+				rgb.bits.g = 0;
 				hueDirection = 4;
 			}
 		case 4:
@@ -616,7 +618,8 @@ static ColorBitfield RainbowColorChange(void) {
 			}
 		case 5:
 			rgb.bits.b--;
-			if (rgb.bits.b == 0) {
+			if (rgb.bits.b == 0 || rgb.bits.b >= 32) {
+				rgb.bits.b = 0;
 				hueDirection = 0;
 			}
 		}
