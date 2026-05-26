@@ -303,7 +303,12 @@ void HUB75_ChangeDrawFrameColor(ColorBitfield color) {
 	for (int y = 0; y < HUB75_PANEL_HEIGHT; y++) {
 		for (int x = 0; x < HUB75_PANEL_WIDTH; x++) {
 			if (s_framebuf[current_draw_frame][y][x].bits.b != 0) {
-				float strength = (float)s_framebuf[current_draw_frame][y][x].bits.b / 0x1f;
+				float strength = (float)(
+						s_framebuf[current_draw_frame][y][x].bits.r * 2 +
+						s_framebuf[current_draw_frame][y][x].bits.g * 5 +
+						s_framebuf[current_draw_frame][y][x].bits.b)
+						/ 248;
+				// 8 color strength divided by 31 max = 248
 				s_framebuf[current_draw_frame][y][x].bits.r = color.bits.r * strength;
 				s_framebuf[current_draw_frame][y][x].bits.g = color.bits.g * strength;
 				s_framebuf[current_draw_frame][y][x].bits.b = color.bits.b * strength;
