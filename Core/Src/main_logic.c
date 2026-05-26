@@ -581,7 +581,7 @@ static ColorBitfield RainbowColorChange(void) {
 	static uint32_t lastMillis = 0;
 	uint32_t actualMillis = HAL_GetTick();
 
-	while (actualMillis - lastMillis > maxMillisRainbowStep) {
+	while (actualMillis > lastMillis && actualMillis - lastMillis > maxMillisRainbowStep) {
 		lastMillis += maxMillisRainbowStep;
 
 		switch(hueDirection) {
