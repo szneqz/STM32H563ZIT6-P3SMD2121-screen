@@ -21,6 +21,8 @@ static void LogicEmblemMenu(void);
 static void ApplyEmblemColor(void);
 static void AssignRealEmblemColor(void);
 static void DrawEmblem(ColorBitfield color);
+static void BacklightLogic(void);
+static void GlitchLogic(void);
 
 static bool isNokiaUpdated = false;
 											  //red,     green,    blue,     cyan,     magenta,  yellow,   white,    nocolor
@@ -71,6 +73,12 @@ static bool isEmblemRainbowMode = false;
 static uint8_t pickedEmblemRed = 0b00000;
 static uint8_t pickedEmblemGreen = 0b00000;
 static uint8_t pickedEmblemBlue = 0b11111;
+
+// Backlight
+static bool isBacklight = true;
+
+// Glitch
+static bool isGlitch = false;
 
 static ColorBitfield protogen_emotes[8][32][128] = {
 		// PROTOGEN NEUTRAL
@@ -357,6 +365,9 @@ static ColorBitfield protogen_emotes[8][32][128] = {
 
 void LogicInit(void) {
 	AssignRealEmoteColor();
+
+	if (isBacklight) HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_SET);
+	else HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_RESET);
 }
 
 void LogicLoop(void) {
@@ -435,6 +446,8 @@ static void LogicMainMenu(void) {
 		if (mainMenuSelected == EMOTES) menuType = EMOTES_MENU;
 		else if (mainMenuSelected == GAMES) menuType = GAMES_MENU;
 		else if (mainMenuSelected == EMBLEM) menuType = EMBLEM_MENU;
+		else if (mainMenuSelected == BACKLIGHT) BacklightLogic();
+		else if (mainMenuSelected == GLITCH) GlitchLogic();
 
 		GAMEPAD_SetClickReadFlag(A);
 		isNokiaUpdated = false;
@@ -837,5 +850,23 @@ static void DrawEmblem(ColorBitfield color) {
 				HUB75_SetPixelColor(127 - j , i, color);
 			}
 		}
+	}
+}
+
+static void BacklightLogic(void) {
+	if (isBacklight) {
+		isBacklight = false;
+		HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_RESET);
+	} else {
+		isBacklight = true;
+		HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_SET);
+	}
+}
+
+static void GlitchLogic(void) {
+	if (isGlitch) {
+		isGlitch = false;
+	} else {
+		isGlitch = true;
 	}
 }

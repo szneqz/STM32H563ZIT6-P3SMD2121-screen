@@ -150,7 +150,6 @@ int main(void)
   NOKIA_SetChar('B', 20, 20, 1, 0);
   NOKIA_StopDataPrepare();
   NOKIA_SendData();
-  HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_SET);
 
   LogicInit();
 
