@@ -581,7 +581,7 @@ static ColorBitfield RainbowColorChange(void) {
 	static uint32_t lastMillis = 0;
 	uint32_t actualMillis = HAL_GetTick();
 
-	while (actualMillis > lastMillis && actualMillis - lastMillis > maxMillisRainbowStep) {
+	while (actualMillis > lastMillis) {
 		lastMillis += maxMillisRainbowStep;
 
 		switch(hueDirection) {
@@ -598,30 +598,35 @@ static ColorBitfield RainbowColorChange(void) {
 				rgb.bits.r = 0;
 				hueDirection = 2;
 			}
+			break;
 		case 2:
 			rgb.bits.b++;
 			if (rgb.bits.b >= 31) {
 				rgb.bits.b = 31;
 				hueDirection = 3;
 			}
+			break;
 		case 3:
 			rgb.bits.g--;
 			if (rgb.bits.g == 0 || rgb.bits.g >= 32) {
 				rgb.bits.g = 0;
 				hueDirection = 4;
 			}
+			break;
 		case 4:
 			rgb.bits.r++;
 			if (rgb.bits.r >= 31) {
 				rgb.bits.r = 31;
 				hueDirection = 5;
 			}
+			break;
 		case 5:
 			rgb.bits.b--;
 			if (rgb.bits.b == 0 || rgb.bits.b >= 32) {
 				rgb.bits.b = 0;
 				hueDirection = 0;
 			}
+			break;
 		}
 	}
 
