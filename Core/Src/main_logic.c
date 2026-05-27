@@ -16,6 +16,10 @@ static void LogicEmotesMenu(void);
 static void ApplyEmoteColor(void);
 static void AssignRealEmoteColor(void);
 static ColorBitfield RainbowColorChange(void);
+static void DrawEmblemMenu(void);
+static void LogicEmblemMenu(void);
+static void ApplyEmblemColor(void);
+static void AssignRealEmblemColor(void);
 static void DrawEmblem(ColorBitfield color);
 
 static bool isNokiaUpdated = false;
@@ -25,6 +29,12 @@ static const char colorNames[] = {'R', 'G', 'B', 'C', 'M', 'Y', 'W', 'N', '$'};	
 static const uint32_t maxMillisRainbowStep = 5;
 
 // Main Menu
+enum MENU_TYPE {
+	MAIN_MENU, EMOTES_MENU, GAMES_MENU, EMBLEM_MENU, MENU_TYPE_COUNT
+};
+enum MAIN_MENU_SELECTIONS {
+	EMOTES, GAMES, EMBLEM, BACKLIGHT, GLITCH, MAIN_MENU_SELECTIONS_COUNT
+};
 static uint8_t menuType = MAIN_MENU;
 static uint8_t mainMenuSelected = EMOTES;
 
@@ -46,10 +56,21 @@ static uint8_t pickedEmoteGreen = 0b00000;
 static uint8_t pickedEmoteBlue = 0b11111;
 
 // Games submenu
+enum GAMES_MENU_SELECTIONS {
+	GAME_LIST, SNAKE, TETRIS, GAMES_MENU_SELECTIONS_COUNT
+};
 static bool isInGame = false;
 
 // Emblem submenu
+enum EMBLEM_SUB_MENU {
+	EMBLEM_COLOR, EMBLEM_R, EMBLEM_G, EMBLEM_B
+};
+static uint8_t emblemSubMenu = EMBLEM_COLOR;
+static uint8_t selectedEmblemColor = 2;	//default blue
 static bool isEmblemRainbowMode = false;
+static uint8_t pickedEmblemRed = 0b00000;
+static uint8_t pickedEmblemGreen = 0b00000;
+static uint8_t pickedEmblemBlue = 0b11111;
 
 static ColorBitfield protogen_emotes[8][32][128] = {
 		// PROTOGEN NEUTRAL
@@ -350,13 +371,10 @@ void LogicLoop(void) {
 		}
 	}
 
-	if (menuType == MAIN_MENU) {
-		LogicMainMenu();
-	}
-
-	if (menuType == EMOTES_MENU) {
-		LogicEmotesMenu();
-	}
+	if (menuType == MAIN_MENU) LogicMainMenu();
+	else if (menuType == EMOTES_MENU) LogicEmotesMenu();
+	else if (menuType == GAMES_MENU) /*LogicGamesMenu();*/;
+	else if (menuType == EMBLEM_MENU) LogicEmblemMenu();
 
 	if (isEmoteRainbowMode || isEmblemRainbowMode) {
 		static ColorBitfield lastRainbowColor = {0x0000};
@@ -372,7 +390,10 @@ void LogicLoop(void) {
 			}
 
 			if (isEmblemRainbowMode) {
-				//TODO:
+				pickedEmblemRed = rainbowColor.bits.r;
+				pickedEmblemGreen = rainbowColor.bits.g;
+				pickedEmblemBlue = rainbowColor.bits.b;
+				AssignRealEmblemColor();
 			}
 
 			isNokiaUpdated = false;
@@ -567,11 +588,136 @@ static void ApplyEmoteColor(void) {
 static void AssignRealEmoteColor(void) {
 	if(HUB75_StartDrawing()) {
 		HUB75_CopyFrame((ColorBitfield*)protogen_emotes[selectedEmote], HUB75_PANEL_HEIGHT * HUB75_PANEL_WIDTH);
-		ColorBitfield pickedColor = { .bits.r = pickedEmoteRed, .bits.g = pickedEmoteGreen, .bits.b = pickedEmoteBlue };
-		if (pickedColor.color != possibleColors[NO_COLOR].color)	//if no color then don't change color
-			HUB75_ChangeDrawFrameColor(pickedColor);
-		ColorBitfield blue = {0x001F};
-		DrawEmblem(blue);
+		ColorBitfield pickedEmoteColor = { .bits.r = pickedEmoteRed, .bits.g = pickedEmoteGreen, .bits.b = pickedEmoteBlue };
+		if (pickedEmoteColor.color != possibleColors[NO_COLOR].color)	//if no color then don't change color
+			HUB75_ChangeDrawFrameColor(pickedEmoteColor);
+		ColorBitfield emblemColor = { .bits.r = pickedEmblemRed, .bits.g = pickedEmblemGreen, .bits.b = pickedEmblemBlue};
+		if (emblemColor.color != possibleColors[NO_COLOR].color)	//if no color then don't override color
+			DrawEmblem(emblemColor);
+	}
+}
+
+static void DrawEmblemMenu(void) {
+	NOKIA_StartDataPrepare();
+	NOKIA_Clear();
+
+	NOKIA_SetStr("Color:", 6, 8, true, false, false);
+	NOKIA_SetChar(colorNames[selectedEmblemColor], 7 * 6, 8, emblemSubMenu != EMBLEM_COLOR, false);
+	char rStr[3] = "0";
+	char gStr[3] = "0";
+	char bStr[3] = "0";
+
+	sprintf(rStr, "%d", pickedEmblemRed);
+	sprintf(gStr, "%d", pickedEmblemGreen);
+	sprintf(bStr, "%d", pickedEmblemBlue);
+
+	NOKIA_SetStr("Red:", 6, 3 * 8, true, false, false);
+	NOKIA_SetStr("Green:", 6, 4 * 8, true, false, false);
+	NOKIA_SetStr("Blue:", 6, 5 * 8, true, false, false);
+	NOKIA_SetStr(rStr, 7 * 6, 3 * 8, emblemSubMenu != EMBLEM_R, false, false);
+	NOKIA_SetStr(gStr, 7 * 6, 4 * 8, emblemSubMenu != EMBLEM_G, false, false);
+	NOKIA_SetStr(bStr, 7 * 6, 5 * 8, emblemSubMenu != EMBLEM_B, false, false);
+
+	NOKIA_StopDataPrepare();
+	NOKIA_SendData();
+	isNokiaUpdated = true;
+}
+
+static void LogicEmblemMenu(void) {
+	if (!isNokiaUpdated) {
+			DrawEmblemMenu();
+		}
+
+		if (GAMEPAD_GetClickButton(UP)) {
+			if (emblemSubMenu == EMBLEM_COLOR) {
+				if (selectedEmblemColor == 0) selectedEmblemColor = RAINBOW;
+				else selectedEmblemColor--;
+			} else if (!isEmblemRainbowMode) {
+				if (emblemSubMenu == EMBLEM_R) {
+					if (pickedEmblemRed >= 31) pickedEmblemRed = 0;
+					else pickedEmblemRed++;
+					AssignRealEmblemColor();
+				} else if (emblemSubMenu == EMBLEM_G) {
+					if (pickedEmblemGreen >= 31) pickedEmblemGreen = 0;
+					else pickedEmblemGreen++;
+					AssignRealEmblemColor();
+				} else if (emblemSubMenu == EMBLEM_B) {
+					if (pickedEmblemBlue >= 31) pickedEmblemBlue = 0;
+					else pickedEmblemBlue++;
+					AssignRealEmblemColor();
+				}
+			}
+			GAMEPAD_SetClickReadFlag(UP);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(DOWN)) {
+			if (emblemSubMenu == EMBLEM_COLOR) {
+				if (selectedEmblemColor >= RAINBOW) selectedEmblemColor = 0;
+				else selectedEmblemColor++;
+			} else if (!isEmblemRainbowMode) {
+				if (emblemSubMenu == EMBLEM_R) {
+					if (pickedEmblemRed == 0) pickedEmblemRed = 31;
+					else pickedEmblemRed--;
+					AssignRealEmblemColor();
+				} else if (emblemSubMenu == EMBLEM_G) {
+					if (pickedEmblemGreen == 0) pickedEmblemGreen = 31;
+					else pickedEmblemGreen--;
+					AssignRealEmblemColor();
+				} else if (emblemSubMenu == EMBLEM_B) {
+					if (pickedEmblemBlue == 0) pickedEmblemBlue = 31;
+					else pickedEmblemBlue--;
+					AssignRealEmblemColor();
+				}
+			}
+			GAMEPAD_SetClickReadFlag(DOWN);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(RIGHT)) {
+			if (emblemSubMenu >= EMBLEM_B) {
+				emblemSubMenu = EMBLEM_COLOR;
+			} else {
+				emblemSubMenu++;
+			}
+			GAMEPAD_SetClickReadFlag(RIGHT);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(LEFT)) {
+			if (emblemSubMenu == EMBLEM_COLOR) {
+				emblemSubMenu = EMBLEM_B;
+			} else {
+				emblemSubMenu--;
+			}
+			GAMEPAD_SetClickReadFlag(LEFT);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(A)) {
+			if (emblemSubMenu == EMBLEM_COLOR) {
+				ApplyEmblemColor();
+			}
+			GAMEPAD_SetClickReadFlag(A);
+			isNokiaUpdated = false;
+		}
+}
+
+static void ApplyEmblemColor(void) {
+	if (selectedEmblemColor != RAINBOW) {
+		//everything except rainbow
+		isEmblemRainbowMode = false;
+		pickedEmblemRed = possibleColors[selectedEmblemColor].bits.r;
+		pickedEmblemGreen = possibleColors[selectedEmblemColor].bits.g;
+		pickedEmblemBlue = possibleColors[selectedEmblemColor].bits.b;
+		AssignRealEmblemColor();
+	} else if (selectedEmblemColor == RAINBOW) {
+		isEmblemRainbowMode = true;
+	}
+}
+
+static void AssignRealEmblemColor(void) {
+	if(HUB75_StartDrawing()) {
+		HUB75_CopyPreviousFrame();
+		ColorBitfield emblemColor = { .bits.r = pickedEmblemRed, .bits.g = pickedEmblemGreen, .bits.b = pickedEmblemBlue};
+		if (emblemColor.color != possibleColors[NO_COLOR].color)	//if no color then don't override color
+			DrawEmblem(emblemColor);
 	}
 }
 
