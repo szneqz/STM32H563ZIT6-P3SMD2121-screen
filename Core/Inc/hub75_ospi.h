@@ -81,7 +81,8 @@ typedef union {
         uint16_t b : 5; // 5 bits
         uint16_t g : 5; // 5 bits
         uint16_t r : 5; // 5 bits
-    } bits;             // Total: 5 + 5 + 5 = 15 bits
+        bool mask : 1; 	// 1 bit
+    } bits;             // Total: 5 + 5 + 5 + 1 = 16 bits
 } ColorBitfield;
 
 void HUB75_Init(XSPI_HandleTypeDef *hospi);
