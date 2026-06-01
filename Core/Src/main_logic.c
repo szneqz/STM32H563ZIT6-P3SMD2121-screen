@@ -6,6 +6,8 @@
  */
 #include "main_logic.h"
 #include "screen_images.h"
+#include "snake.h"
+#include "tetris.h"
 
 #define NO_COLOR 7
 #define RAINBOW 8
@@ -66,10 +68,12 @@ static uint8_t pickedEmoteGreen = 0b00000;
 static uint8_t pickedEmoteBlue = 0b11111;
 
 // Games submenu
-enum GAMES_MENU_SELECTIONS {
+enum GAMES_SUB_MENU {
 	SNAKE, TETRIS, GAMES_MENU_SELECTIONS_COUNT
 };
+static uint8_t gamesSubMenuSelected = SNAKE;
 static bool isInGame = false;
+static uint8_t gameStarted = SNAKE;
 
 // Emblem submenu
 enum EMBLEM_SUB_MENU {
@@ -143,13 +147,13 @@ void LogicLoop(void) {
 	else if (menuType == GAMES_MENU) LogicGamesMenu();
 	else if (menuType == EMBLEM_MENU) LogicEmblemMenu();
 
-	if (isEmoteRainbowMode || isEmblemRainbowMode) {
+	if ((isEmoteRainbowMode && !isInGame) || isEmblemRainbowMode) {
 		static ColorBitfield lastRainbowColor = {0x0000};
 		ColorBitfield rainbowColor = RainbowColorChange();
 		if (rainbowColor.color != lastRainbowColor.color) {
 			lastRainbowColor.color = rainbowColor.color;
 
-			if (isEmoteRainbowMode) {
+			if (isEmoteRainbowMode && !isInGame) {
 				pickedEmoteRed = rainbowColor.bits.r;
 				pickedEmoteGreen = rainbowColor.bits.g;
 				pickedEmoteBlue = rainbowColor.bits.b;
@@ -373,11 +377,57 @@ static void AssignRealEmoteColor(void) {
 }
 
 static void DrawGamesMenu(void) {
-
+	NOKIA_StartDataPrepare();
+	NOKIA_Clear();
+	NOKIA_SetStr(" Snake        ", 0, 0, gamesSubMenuSelected != SNAKE, false, false);
+	NOKIA_SetStr(" Tetris       ", 0, 8, gamesSubMenuSelected != TETRIS, false, false);
+	NOKIA_StopDataPrepare();
+	NOKIA_SendData();
+	isNokiaUpdated = true;
 }
 
 static void LogicGamesMenu(void) {
+	if (!isNokiaUpdated && !isInGame) {
+		DrawGamesMenu();
+	}
 
+	if (!isInGame) {
+		if (GAMEPAD_GetClickButton(UP)) {
+			gamesSubMenuSelected = (gamesSubMenuSelected - 1 + GAMES_MENU_SELECTIONS_COUNT) % GAMES_MENU_SELECTIONS_COUNT;
+			GAMEPAD_SetClickReadFlag(UP);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(DOWN)) {
+			gamesSubMenuSelected = (gamesSubMenuSelected + 1) % GAMES_MENU_SELECTIONS_COUNT;
+			GAMEPAD_SetClickReadFlag(DOWN);
+			isNokiaUpdated = false;
+		}
+		else if (GAMEPAD_GetClickButton(A)) {
+			if (gamesSubMenuSelected == SNAKE) {
+				gameStarted = SNAKE;
+				SNAKE_Init();
+			}
+			else if (gamesSubMenuSelected == TETRIS) {
+				gameStarted = TETRIS;
+				TETRIS_Init();
+			}
+
+			isInGame = true;
+
+			GAMEPAD_SetClickReadFlag(A);
+			isNokiaUpdated = false;
+		}
+	}
+
+	if (isInGame && GAMEPAD_GetHoldButton(LEFT) && GAMEPAD_GetHoldButton(RIGHT) && GAMEPAD_GetHoldButton(B)) {
+		isInGame = false;
+		isNokiaUpdated = false;
+	}
+
+	if (isInGame) {
+		if (gameStarted == SNAKE) SNAKE_Logic();
+		if (gameStarted == TETRIS) TETRIS_Logic();
+	}
 }
 
 static void DrawEmblemMenu(void) {
