@@ -32,7 +32,7 @@ static bool isNokiaUpdated = false;
 											  //red,     green,    blue,     cyan,     magenta,  yellow,   white,    nocolor
 static const ColorBitfield possibleColors[] = {{0x7c00}, {0x03e0}, {0x001f}, {0x03ff}, {0x7c1f}, {0x7fe0}, {0x7fff}, {0x0000}};
 static const char colorNames[] = {'R', 'G', 'B', 'C', 'M', 'Y', 'W', 'N', '$'};	// N - no color, $ - rainbow
-static const uint32_t maxMillisRainbowStep = 25;
+static const uint32_t maxMillisRainbowStep = 60;
 
 // Main Menu
 enum MENU_TYPE {
@@ -520,7 +520,7 @@ static ColorBitfield RainbowColorChange(void) {
 		case 0:
 			rgb.bits.g += 5;
 			if (rgb.bits.g >= 31) {
-				rgb.bits.g = 31;
+				rgb.bits.g = 30;
 				hueDirection = 1;
 			}
 			break;
@@ -534,7 +534,7 @@ static ColorBitfield RainbowColorChange(void) {
 		case 2:
 			rgb.bits.b += 5;
 			if (rgb.bits.b >= 31) {
-				rgb.bits.b = 31;
+				rgb.bits.b = 30;
 				hueDirection = 3;
 			}
 			break;
@@ -548,7 +548,7 @@ static ColorBitfield RainbowColorChange(void) {
 		case 4:
 			rgb.bits.r += 5;
 			if (rgb.bits.r >= 31) {
-				rgb.bits.r = 31;
+				rgb.bits.r = 30;
 				hueDirection = 5;
 			}
 			break;
