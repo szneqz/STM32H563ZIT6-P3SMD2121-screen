@@ -16,6 +16,8 @@ static void DrawEmotesMenu(void);
 static void LogicEmotesMenu(void);
 static void ApplyEmoteColor(void);
 static void AssignRealEmoteColor(void);
+static void DrawGamesMenu(void);
+static void LogicGamesMenu(void);
 static ColorBitfield RainbowColorChange(void);
 static void DrawEmblemMenu(void);
 static void LogicEmblemMenu(void);
@@ -30,7 +32,7 @@ static bool isNokiaUpdated = false;
 											  //red,     green,    blue,     cyan,     magenta,  yellow,   white,    nocolor
 static const ColorBitfield possibleColors[] = {{0x7c00}, {0x03e0}, {0x001f}, {0x03ff}, {0x7c1f}, {0x7fe0}, {0x7fff}, {0x0000}};
 static const char colorNames[] = {'R', 'G', 'B', 'C', 'M', 'Y', 'W', 'N', '$'};	// N - no color, $ - rainbow
-static const uint32_t maxMillisRainbowStep = 5;
+static const uint32_t maxMillisRainbowStep = 25;
 
 // Main Menu
 enum MENU_TYPE {
@@ -49,7 +51,7 @@ static char *emotesNames[] = {" Pro_STD   ", " Pro_Happy ", " Pro_Sad   ", " Pro
 static bool emotesDefaultNoColor[] = {false, false, false, false, false, false, false, false,
 									false, false,
 									true, true, true, true, true, true, true, true};
-static uint8_t emotesNamesSize = 8;
+static uint8_t emotesNamesSize = 18;
 static uint8_t markedEmote = 0;
 static uint8_t selectedEmote = 0;
 static uint8_t emotesScrollOffset = 0;
@@ -65,7 +67,7 @@ static uint8_t pickedEmoteBlue = 0b11111;
 
 // Games submenu
 enum GAMES_MENU_SELECTIONS {
-	GAME_LIST, SNAKE, TETRIS, GAMES_MENU_SELECTIONS_COUNT
+	SNAKE, TETRIS, GAMES_MENU_SELECTIONS_COUNT
 };
 static bool isInGame = false;
 
@@ -138,7 +140,7 @@ void LogicLoop(void) {
 
 	if (menuType == MAIN_MENU) LogicMainMenu();
 	else if (menuType == EMOTES_MENU) LogicEmotesMenu();
-	else if (menuType == GAMES_MENU) /*LogicGamesMenu();*/;
+	else if (menuType == GAMES_MENU) LogicGamesMenu();
 	else if (menuType == EMBLEM_MENU) LogicEmblemMenu();
 
 	if (isEmoteRainbowMode || isEmblemRainbowMode) {
@@ -370,6 +372,14 @@ static void AssignRealEmoteColor(void) {
 	}
 }
 
+static void DrawGamesMenu(void) {
+
+}
+
+static void LogicGamesMenu(void) {
+
+}
+
 static void DrawEmblemMenu(void) {
 	NOKIA_StartDataPrepare();
 	NOKIA_Clear();
@@ -508,42 +518,42 @@ static ColorBitfield RainbowColorChange(void) {
 
 		switch(hueDirection) {
 		case 0:
-			rgb.bits.g++;
+			rgb.bits.g += 5;
 			if (rgb.bits.g >= 31) {
 				rgb.bits.g = 31;
 				hueDirection = 1;
 			}
 			break;
 		case 1:
-			rgb.bits.r--;
+			rgb.bits.r -= 5;
 			if (rgb.bits.r == 0 || rgb.bits.r >= 32) {
 				rgb.bits.r = 0;
 				hueDirection = 2;
 			}
 			break;
 		case 2:
-			rgb.bits.b++;
+			rgb.bits.b += 5;
 			if (rgb.bits.b >= 31) {
 				rgb.bits.b = 31;
 				hueDirection = 3;
 			}
 			break;
 		case 3:
-			rgb.bits.g--;
+			rgb.bits.g -= 5;
 			if (rgb.bits.g == 0 || rgb.bits.g >= 32) {
 				rgb.bits.g = 0;
 				hueDirection = 4;
 			}
 			break;
 		case 4:
-			rgb.bits.r++;
+			rgb.bits.r += 5;
 			if (rgb.bits.r >= 31) {
 				rgb.bits.r = 31;
 				hueDirection = 5;
 			}
 			break;
 		case 5:
-			rgb.bits.b--;
+			rgb.bits.b -= 5;
 			if (rgb.bits.b == 0 || rgb.bits.b >= 32) {
 				rgb.bits.b = 0;
 				hueDirection = 0;
