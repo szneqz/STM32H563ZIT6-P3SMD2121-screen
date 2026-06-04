@@ -152,6 +152,10 @@ void NOKIA_SendData(void) {
 	}
 }
 
+void NOKIA_CopyPreviousFrame(void) {
+	memcpy(s_framebuf[current_draw_frame], s_framebuf[current_display_frame], NOKIA_PANEL_DATA_SIZE);
+}
+
 void NOKIA_SetPixel(uint8_t x, uint8_t y, bool bw) {
     if (x >= 0 && x < NOKIA_PANEL_WIDTH && y >= 0 && y < NOKIA_PANEL_HEIGHT) {
 		int index = x + (y / 8) * NOKIA_PANEL_WIDTH;

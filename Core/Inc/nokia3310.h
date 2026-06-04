@@ -32,6 +32,7 @@ void NOKIA_Select(void);
 void NOKIA_Unselect(void);
 void NOKIA_SendCmd(uint8_t *cmd, uint16_t size);
 void NOKIA_SendData(void);
+void NOKIA_CopyPreviousFrame(void);
 void NOKIA_SetPixel(uint8_t x, uint8_t y, bool bw);
 void NOKIA_SetLine(int x0, int y0, int x1, int y1, bool bw);
 void NOKIA_SetRect(int x0, int y0, int x1, int y1, bool fill, bool bw);
