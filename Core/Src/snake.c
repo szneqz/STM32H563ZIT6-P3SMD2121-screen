@@ -28,10 +28,6 @@ static void SNAKE_DrawBorder(void);
 static void SNAKE_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor);
 static void SNAKE_SpawnFruit(void);
 static bool SNAKE_CalculateDirection(void);
-static float Fract(float x);
-static float Mix(float a, float b, float t);
-static float Clampf(float value, float min, float max);
-static ColorBitfield HSVtoRGB(float h, float s, float v);
 
 enum SNAKE_DIR {
 	SNAKE_RIGHT, SNAKE_DOWN, SNAKE_LEFT, SNAKE_UP
@@ -57,6 +53,7 @@ void SNAKE_Init(void) {
 	NOKIA_StartDataPrepare();
 	NOKIA_Clear();
 
+	HUB75_Clear();
 	SNAKE_DrawBorder();
 
 	snakePos[0][0] = (uint8_t)(SNAKE_WIDTH / 2);
@@ -305,30 +302,4 @@ static bool SNAKE_CalculateDirection(void) {
 		return true;
 	}
 	return false;
-}
-
-static float Fract(float x) {
-	return x - ((int) x);
-}
-
-static float Mix(float a, float b, float t) {
-	return a + (b - a) * t;
-}
-
-static float Clampf(float value, float min, float max)
-{
-    if (value < min)
-        return min;
-    if (value > max)
-        return max;
-    return value;
-}
-
-static ColorBitfield HSVtoRGB(float h, float s, float v) {
-	ColorBitfield result = { color: 0x0000 };
-	result.bits.r = v * Mix(1.0, Clampf(fabsf(Fract(h + 1.0) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 31;
-	result.bits.g = v * Mix(1.0, Clampf(fabsf(Fract(h + 0.6666666) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 31;
-	result.bits.b = v * Mix(1.0, Clampf(fabsf(Fract(h + 0.3333333) * 6.0 - 3.0) - 1.0, 0.0, 1.0), s) * 31;
-
-	return result;
 }

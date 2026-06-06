@@ -11,6 +11,7 @@
 #include "hub75_ospi.h"
 #include "nokia3310.h"
 #include "gamepad.h"
+#include "helper.h"
 
 void TETRIS_Init(void);
 void TETRIS_Logic(void);
