@@ -89,7 +89,6 @@ static int8_t nextFigure = 0;
 static int8_t actualFigure = 0;
 static ColorBitfield actualFigureColor = {0x03ff};
 static bool randomizeFigure = false;      //if create new random figure
-static const int8_t tetris_game_width = 10;  //standard game width
 static int8_t tetrisMode = TETRIS_STATIC;
 static const int8_t fastMovementBlockDelay = 1;
 static const int8_t movementBlockDelay = 20;
@@ -175,7 +174,8 @@ void TETRIS_Logic(void) {
 				actualFigure = nextFigure;
 				actualFigureColor = tetrisColors[actualFigure];
 				nextFigure = randomNumber % 7;
-				DrawAnyFigure(tetris_game_width + 3, 2, 0, nextFigure);  //draw another figure
+				//TODO: Show next figure
+				//DrawAnyFigure(TETRIS_WIDTH + 3, 2, 0, nextFigure);  //draw another figure
 				figurePosX = figurePosXStart;
 				figurePosY = 0;
 				figureRot = 0;
@@ -422,6 +422,7 @@ static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 					TETRIS_DrawPixel(l, (k + 1), tetrisPlayfield[k * TETRIS_WIDTH + l], tetrisPlayfield[k * TETRIS_WIDTH + l].color > 0);
 				}
 			}
+			//TODO: Draw Tetris score here
 
 			tetrisScore++;
 		}
