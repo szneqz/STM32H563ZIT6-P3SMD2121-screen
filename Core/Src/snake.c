@@ -21,6 +21,8 @@
 #define SNAKE_NOKIA_Y0 1
 #define SNAKE_NOKIA_Y1 30
 
+extern volatile uint32_t randomNumber;
+
 static ColorBitfield black = { 0x0000 };
 static ColorBitfield white = { 0x7FFF };
 

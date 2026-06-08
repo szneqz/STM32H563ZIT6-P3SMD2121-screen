@@ -24,6 +24,8 @@
 
 #define TETRIS_NR_FIGURES 7
 
+extern volatile uint32_t randomNumber;
+
 static ColorBitfield black = { 0x0000 };
 
 static const unsigned long maxTetrisGameDelay = 30;

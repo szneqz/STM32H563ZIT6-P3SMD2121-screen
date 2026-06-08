@@ -57,7 +57,9 @@ SPI_HandleTypeDef hspi1;
 DMA_HandleTypeDef handle_GPDMA1_Channel1;
 
 /* USER CODE BEGIN PV */
-
+volatile uint32_t adcBuffer[1] = {0};
+volatile uint32_t randomNumber = 0;
+volatile uint8_t randomBits = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/

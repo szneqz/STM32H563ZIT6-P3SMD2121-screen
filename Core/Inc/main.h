@@ -40,10 +40,6 @@ extern "C" {
 /* Exported types ------------------------------------------------------------*/
 /* USER CODE BEGIN ET */
 
-static uint32_t adcBuffer[1] = {0};
-static uint32_t randomNumber = 0;
-static uint8_t randomBits = 0;
-
 /* USER CODE END ET */
 
 /* Exported constants --------------------------------------------------------*/
