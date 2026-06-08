@@ -46,7 +46,7 @@ static uint8_t snakeDir = SNAKE_RIGHT;
 static uint8_t lastSnakeDir = SNAKE_RIGHT;
 static uint8_t fruitPos[2] = {0, 0};
 static uint8_t snakeMode = SNAKE_STATIC;
-static const uint16_t maxSnakePlayingDelay = 500;
+static const uint16_t maxSnakePlayingDelay = 200;
 static const uint16_t maxSnakeDeadDelay = 1000;
 static uint8_t snakeDeadBlinks = 6;
 static const uint8_t maxSnakeDeadBlinks = 6;
@@ -286,7 +286,10 @@ static void SNAKE_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool n
 		HUB75_SetPixelColor(SNAKE_X10 + x * 2 + 1, SNAKE_Y0 + y * 2 + 1, hubColor);
 	}
 
-	NOKIA_SetRect(SNAKE_NOKIA_X0 + x * 2, SNAKE_NOKIA_Y0 + y * 2, SNAKE_NOKIA_X0 + x * 2 + 1, SNAKE_NOKIA_Y0 + y * 2 + 1, true, nokiaColor);
+	NOKIA_SetPixel(SNAKE_NOKIA_X0 + x * 2, SNAKE_NOKIA_Y0 + y * 2, nokiaColor);
+	NOKIA_SetPixel(SNAKE_NOKIA_X0 + x * 2, SNAKE_NOKIA_Y0 + y * 2 + 1, nokiaColor);
+	NOKIA_SetPixel(SNAKE_NOKIA_X0 + x * 2 + 1, SNAKE_NOKIA_Y0 + y * 2, nokiaColor);
+	NOKIA_SetPixel(SNAKE_NOKIA_X0 + x * 2 + 1, SNAKE_NOKIA_Y0 + y * 2 + 1, nokiaColor);
 }
 
 static bool SNAKE_CalculateDirection(void) {

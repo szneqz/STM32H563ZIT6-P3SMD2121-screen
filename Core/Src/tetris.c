@@ -24,6 +24,12 @@
 
 #define TETRIS_NR_FIGURES 7
 
+typedef struct
+{
+    int8_t x;
+    int8_t y;
+} BlockPosition;
+
 extern volatile uint32_t randomNumber;
 
 static ColorBitfield black = { 0x0000 };
@@ -31,7 +37,7 @@ static ColorBitfield black = { 0x0000 };
 static const unsigned long maxTetrisGameDelay = 30;
 static const unsigned long maxMoveTetrisLeftRightDelay = 200;
 
-static uint8_t GetFigureBlockPos(uint8_t i, int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, int8_t thisFigure);
+static BlockPosition GetFigureBlockPos(uint8_t i, int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, int8_t thisFigure);
 static void DrawFigure(int8_t lastPosX, int8_t lastPosY, int8_t lastRot);
 static void DrawAnyFigure(int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, int8_t thisFigure);
 static bool CheckFigurePossibility(int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot);
@@ -153,10 +159,12 @@ void TETRIS_Logic(void) {
 
 		if (GAMEPAD_GetClickButton(A)) {
 			RotateTetrisFigure(-1);
+			GAMEPAD_SetClickReadFlag(A);
 		}
 
 		if (GAMEPAD_GetClickButton(B)) {
 			RotateTetrisFigure(1);
+			GAMEPAD_SetClickReadFlag(B);
 		}
 
 		while (actualMillis > lastMillis) {
@@ -204,8 +212,9 @@ void TETRIS_Logic(void) {
 
 			if (blockDelay <= 0 && tetrisMode == TETRIS_PLAYING) {
 				for (int8_t i = 0; i < 4; i++) {
-					uint8_t figureBlockPos = GetFigureBlockPos(i, -10, -10, -1, -1);
-					if (figureBlockPos + TETRIS_WIDTH >= TETRIS_PIXEL_SIZE || tetrisPlayfield[figureBlockPos + TETRIS_WIDTH].color != 0) {  //check if figure is outside game area or figure is inside another figure when getting down
+					BlockPosition figureBlockPos = GetFigureBlockPos(i, -10, -10, -1, -1);
+					if (figureBlockPos.y + 1 >= TETRIS_HEIGHT ||
+							tetrisPlayfield[(figureBlockPos.y + 1) * TETRIS_WIDTH + figureBlockPos.x].color != 0) {  //check if figure is outside game area or figure is inside another figure when getting down
 						randomizeFigure = true;
 						break;
 					}
@@ -248,25 +257,29 @@ void TETRIS_Logic(void) {
 	}
 }
 
-static uint8_t GetFigureBlockPos(uint8_t i, int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, int8_t thisFigure) {
+static BlockPosition GetFigureBlockPos(uint8_t i, int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, int8_t thisFigure) {
 	if (myFigPosX == -10) myFigPosX = figurePosX;
 	if (myFigPosY == -10) myFigPosY = figurePosY;
 	if (myFigRot == -1) myFigRot = figureRot;
 	if (thisFigure == -1) thisFigure = actualFigure;
-	return (myFigPosY + (figures[thisFigure][myFigRot][i] / 4)) * TETRIS_WIDTH + myFigPosX + (figures[thisFigure][myFigRot][i] % 4);
+	BlockPosition blockPosition = {
+			.x = (myFigPosX + (figures[thisFigure][myFigRot][i] % 4)),
+			.y = (myFigPosY + (figures[thisFigure][myFigRot][i] / 4))
+	};
+	return blockPosition;
 }
 
 static void DrawFigure(int8_t lastPosX, int8_t lastPosY, int8_t lastRot) {
 	if (lastRot == -1) lastRot = figureRot;
 
 	for (int8_t i = 0; i < 4; i++) {
-		int8_t figureBlockPos = GetFigureBlockPos(i, lastPosX, lastPosY, lastRot, -1);
-		TETRIS_DrawPixel(figureBlockPos % TETRIS_WIDTH, figureBlockPos / TETRIS_WIDTH, black, false);
+		BlockPosition figureBlockPos = GetFigureBlockPos(i, lastPosX, lastPosY, lastRot, -1);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, black, false);
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
-		int8_t figureBlockPos = GetFigureBlockPos(i, figurePosX, figurePosY, -1, -1);
-		TETRIS_DrawPixel(figureBlockPos % TETRIS_WIDTH, figureBlockPos / TETRIS_WIDTH, actualFigureColor, true);
+		BlockPosition figureBlockPos = GetFigureBlockPos(i, figurePosX, figurePosY, -1, -1);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, actualFigureColor, true);
 	}
 }
 
@@ -283,15 +296,16 @@ static void DrawAnyFigure(int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, i
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
-		uint8_t figureBlockPos = GetFigureBlockPos(i, myFigPosX, myFigPosY, myFigRot, thisFigure);
-		TETRIS_DrawPixel(figureBlockPos % TETRIS_WIDTH, figureBlockPos / TETRIS_WIDTH, tetrisColors[thisFigure], true);
+		BlockPosition figureBlockPos = GetFigureBlockPos(i, myFigPosX, myFigPosY, myFigRot, thisFigure);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, tetrisColors[thisFigure], true);
 	}
 }
 
 static bool CheckFigurePossibility(int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot) {
 	for (int8_t i = 0; i < 4; i++) {
-		uint8_t figureBlockPos = GetFigureBlockPos(i, myFigPosX, myFigPosY, myFigRot, -1);
-		if (figureBlockPos < 0 || (figureBlockPos / TETRIS_WIDTH) >= TETRIS_HEIGHT || tetrisPlayfield[figureBlockPos].color != 0) {  //check if figure is outside game area or figure is inside another figure
+		BlockPosition figureBlockPos = GetFigureBlockPos(i, myFigPosX, myFigPosY, myFigRot, -1);
+		if (figureBlockPos.x < 0 || figureBlockPos.y < 0 || figureBlockPos.x >= TETRIS_WIDTH || figureBlockPos.y >= TETRIS_HEIGHT ||
+				tetrisPlayfield[figureBlockPos.y * TETRIS_WIDTH + figureBlockPos.x].color != 0) {  //check if figure is outside game area or figure is inside another figure
 			return false;
 		}
 	}
@@ -382,8 +396,9 @@ static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 			bool canMove = true;
 
 			for (int8_t i = 0; i < 4; i++) {
-				uint8_t figureBlockPos = GetFigureBlockPos(i, -10, -10, -1, -1);
-				if ((figureBlockPos % TETRIS_WIDTH) + dir < 0 || (figureBlockPos % TETRIS_WIDTH) + dir >= TETRIS_WIDTH || tetrisPlayfield[figureBlockPos + dir].color != 0) {  //check if figure is outside game area or figure is inside another figure
+				BlockPosition figureBlockPos = GetFigureBlockPos(i, -10, -10, -1, -1);
+				if ((figureBlockPos.x + dir) < 0 || (figureBlockPos.x + dir) >= TETRIS_WIDTH ||
+						tetrisPlayfield[figureBlockPos.y * TETRIS_WIDTH + figureBlockPos.x + dir].color != 0) {  //check if figure is outside game area or figure is inside another figure
 					canMove = false;
 					break;
 				}
@@ -481,5 +496,8 @@ static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool 
 		HUB75_SetPixelColor(TETRIS_X10 + x * 2 + 1, TETRIS_Y0 + y * 2 + 1, hubColor);
 	}
 
-	NOKIA_SetRect(TETRIS_NOKIA_X0 + x * 2, TETRIS_NOKIA_Y0 + y * 2, TETRIS_NOKIA_X0 + x * 2 + 1, TETRIS_NOKIA_Y0 + y * 2 + 1, true, nokiaColor);
+	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2, TETRIS_NOKIA_Y0 + y * 2, nokiaColor);
+	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2, TETRIS_NOKIA_Y0 + y * 2 + 1, nokiaColor);
+	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2 + 1, TETRIS_NOKIA_Y0 + y * 2, nokiaColor);
+	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2 + 1, TETRIS_NOKIA_Y0 + y * 2 + 1, nokiaColor);
 }
