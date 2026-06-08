@@ -114,6 +114,9 @@ void TETRIS_Init(void) {
 	nextFigure = randomNumber % TETRIS_NR_FIGURES;
 	tetrisMode = TETRIS_STATIC;
 	tetrisScore = 0;
+
+	NOKIA_StopDataPrepare();
+	NOKIA_SendData();
 }
 
 void TETRIS_Logic(void) {
@@ -229,6 +232,9 @@ void TETRIS_Logic(void) {
 					CheckWholeLines(minHeight, maxHeight);
 				}
 			}
+
+			NOKIA_StopDataPrepare();
+			NOKIA_SendData();
 		}
 	} else if (tetrisMode == TETRIS_DEAD) {
 		if (actualMillis > lastMillis) {
