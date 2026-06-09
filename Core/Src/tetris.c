@@ -260,6 +260,11 @@ void TETRIS_Logic(void) {
 			if (GAMEPAD_GetHoldButton(LEFT) || GAMEPAD_GetHoldButton(RIGHT) || GAMEPAD_GetHoldButton(DOWN)) {
 				TETRIS_Init();
 			}
+
+			if (GAMEPAD_GetClickButton(A) || GAMEPAD_GetClickButton(B)) {
+				GAMEPAD_SetClickReadFlag(A);
+				GAMEPAD_SetClickReadFlag(B);
+			}
 		}
 	}
 }
