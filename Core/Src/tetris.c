@@ -141,6 +141,12 @@ void TETRIS_Logic(void) {
 		if (GAMEPAD_GetHoldButton(LEFT) || GAMEPAD_GetHoldButton(RIGHT) || GAMEPAD_GetHoldButton(DOWN)) {
 			tetrisMode = TETRIS_PLAYING;
 		}
+
+		if (GAMEPAD_GetClickButton(A) || GAMEPAD_GetClickButton(B)) {
+			GAMEPAD_SetClickReadFlag(A);
+			GAMEPAD_SetClickReadFlag(B);
+		}
+
 	} else if (tetrisMode == TETRIS_PLAYING) {
 		if (GAMEPAD_GetHoldButton(DOWN)) {
 			if (blockDelay > fastMovementBlockDelay && startBlockDelay <= 0)
@@ -170,14 +176,14 @@ void TETRIS_Logic(void) {
 		while (actualMillis > lastMillis) {
 			lastMillis += maxTetrisGameDelay;
 
-			NOKIA_StartDataPrepare();
 			if (!previousNokiaFrameCopied) {
+				NOKIA_StartDataPrepare();
 				NOKIA_CopyPreviousFrame();
 				previousNokiaFrameCopied = true;
 			}
 
-			if (HUB75_StartDrawing()) {
-				if (!previousHUB75FrameCopied) {
+			if (!previousHUB75FrameCopied) {
+				if (HUB75_StartDrawing()) {
 					HUB75_CopyPreviousFrame();
 					previousHUB75FrameCopied = true;
 				}
@@ -326,6 +332,19 @@ static void RotateTetrisFigure(int8_t dir)  //1 - clockwise  -1 - counter clockw
 	if (newRot < 0)
 		newRot = 3;
 
+	if (!previousNokiaFrameCopied) {
+		NOKIA_StartDataPrepare();
+		NOKIA_CopyPreviousFrame();
+		previousNokiaFrameCopied = true;
+	}
+
+	if (!previousHUB75FrameCopied) {
+		if (HUB75_StartDrawing()) {
+			HUB75_CopyPreviousFrame();
+			previousHUB75FrameCopied = true;
+		}
+	}
+
 	if (dir == 1) {
 		if (actualFigure == 0)  //if blocks of figure are in whole line (scoring point)
 		{
@@ -406,18 +425,20 @@ static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 
 			if (canMove) {
 				figurePosX += dir;
-				NOKIA_StartDataPrepare();
 				if (!previousNokiaFrameCopied) {
+					NOKIA_StartDataPrepare();
 					NOKIA_CopyPreviousFrame();
 					previousNokiaFrameCopied = true;
 				}
 
-				if (HUB75_StartDrawing()) {
-					if (!previousHUB75FrameCopied) {
+				if (!previousHUB75FrameCopied) {
+					if (HUB75_StartDrawing()) {
 						HUB75_CopyPreviousFrame();
 						previousHUB75FrameCopied = true;
 					}
-					DrawFigure(figurePosX - dir, figurePosY, -1);
+				}
+
+				DrawFigure(figurePosX - dir, figurePosY, -1);
 				}
 			}
 		}
