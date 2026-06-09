@@ -146,6 +146,7 @@ void SNAKE_Logic(void) {
 
 				ColorBitfield tmpColor = HSVtoRGB((float)head / tailLen, 1, 1);
 				SNAKE_DrawPixel(snakePos[head][0], snakePos[head][1], tmpColor, true);
+				SNAKE_DrawPixel(prevTail[0], prevTail[1], black, false); //remove segments on previous position of tail
 
 				SNAKE_DrawPixel(fruitPos[0], fruitPos[1], white, true);
 			}
@@ -177,7 +178,6 @@ void SNAKE_Logic(void) {
 				}
 			}
 
-			SNAKE_DrawPixel(prevTail[0], prevTail[1], black, false); //remove segments on previous position of tail
 			NOKIA_StopDataPrepare();
 			NOKIA_SendData();
 		}
