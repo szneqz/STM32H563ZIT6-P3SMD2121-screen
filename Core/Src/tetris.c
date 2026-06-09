@@ -439,7 +439,6 @@ static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 				}
 
 				DrawFigure(figurePosX - dir, figurePosY, -1);
-				}
 			}
 		}
 	}
