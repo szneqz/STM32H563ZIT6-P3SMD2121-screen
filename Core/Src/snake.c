@@ -25,6 +25,7 @@ extern volatile uint32_t randomNumber;
 
 static ColorBitfield black = { 0x0000 };
 static ColorBitfield white = { 0x7FFF };
+static ColorBitfield weakWhite = { .bits.r = 15, .bits.g = 15, .bits.b = 15 };
 
 static void SNAKE_DrawBorder(void);
 static void SNAKE_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor);
@@ -69,7 +70,6 @@ void SNAKE_Init(void) {
 	tailLen = 3;
 	snakeDir = SNAKE_RIGHT;
 	lastSnakeDir = SNAKE_RIGHT;
-	SNAKE_DrawPixel(fruitPos[0], fruitPos[1], black, false);	//paint over the previous fruit
 	SNAKE_SpawnFruit();
 	SNAKE_DrawPixel(fruitPos[0], fruitPos[1], white, true);
 	snakeMode = SNAKE_STATIC;
@@ -234,33 +234,32 @@ static void SNAKE_SpawnFruit(void) {
 static void SNAKE_DrawBorder(void) {
 	//HUB75 SCREEN
 	if (HUB75_StartDrawing()) {
-		ColorBitfield white = { .bits.r = 31, .bits.g = 31, .bits.b = 31 };
 		uint8_t x0 = SNAKE_X00 - 1;
 		uint8_t x1 = SNAKE_X01 + 1;
 		uint8_t y0 = SNAKE_Y0 - 1;
 		uint8_t y1 = SNAKE_Y1 + 1;
 
 		for (uint8_t x = x0; x <= x1; x++) {
-			HUB75_SetPixelColor(x, y0, white);
-			HUB75_SetPixelColor(x, y1, white);
+			HUB75_SetPixelColor(x, y0, weakWhite);
+			HUB75_SetPixelColor(x, y1, weakWhite);
 		}
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, white);
-			HUB75_SetPixelColor(x1, y, white);
+			HUB75_SetPixelColor(x0, y, weakWhite);
+			HUB75_SetPixelColor(x1, y, weakWhite);
 		}
 
 		x0 = SNAKE_X10 - 1;
 		x1 = SNAKE_X11 + 1;
 
 		for (uint8_t x = x0; x <= x1; x++) {
-			HUB75_SetPixelColor(x, y0, white);
-			HUB75_SetPixelColor(x, y1, white);
+			HUB75_SetPixelColor(x, y0, weakWhite);
+			HUB75_SetPixelColor(x, y1, weakWhite);
 		}
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, white);
-			HUB75_SetPixelColor(x1, y, white);
+			HUB75_SetPixelColor(x0, y, weakWhite);
+			HUB75_SetPixelColor(x1, y, weakWhite);
 		}
 	}
 

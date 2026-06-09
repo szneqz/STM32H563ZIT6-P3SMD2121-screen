@@ -33,6 +33,7 @@ typedef struct
 extern volatile uint32_t randomNumber;
 
 static ColorBitfield black = { 0x0000 };
+static ColorBitfield weakWhite = { .bits.r = 15, .bits.g = 15, .bits.b = 15 };
 
 static const unsigned long maxTetrisGameDelay = 30;
 static const unsigned long maxMoveTetrisLeftRightDelay = 200;
@@ -475,23 +476,22 @@ static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 static void TETRIS_DrawBorder(void) {
 	//HUB75 SCREEN
 	if (HUB75_StartDrawing()) {
-		ColorBitfield white = { .bits.r = 31, .bits.g = 31, .bits.b = 31 };
 		uint8_t x0 = TETRIS_X00 - 1;
 		uint8_t x1 = TETRIS_X01 + 1;
 		uint8_t y0 = TETRIS_Y0;
 		uint8_t y1 = TETRIS_Y1;
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, white);
-			HUB75_SetPixelColor(x1, y, white);
+			HUB75_SetPixelColor(x0, y, weakWhite);
+			HUB75_SetPixelColor(x1, y, weakWhite);
 		}
 
 		x0 = TETRIS_X10 - 1;
 		x1 = TETRIS_X11 + 1;
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, white);
-			HUB75_SetPixelColor(x1, y, white);
+			HUB75_SetPixelColor(x0, y, weakWhite);
+			HUB75_SetPixelColor(x1, y, weakWhite);
 		}
 	}
 
