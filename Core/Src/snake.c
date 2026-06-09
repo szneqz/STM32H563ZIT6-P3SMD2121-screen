@@ -39,12 +39,12 @@ enum SNAKE_MODE {
 	SNAKE_DEAD, SNAKE_STATIC, SNAKE_PLAYING
 };
 
-static uint8_t snakePos[MAX_SNAKE_SEGMENTS][2];
+static int8_t snakePos[MAX_SNAKE_SEGMENTS][2];
 static uint16_t head = 0;
 static uint16_t tailLen = 3;
 static uint8_t snakeDir = SNAKE_RIGHT;
 static uint8_t lastSnakeDir = SNAKE_RIGHT;
-static uint8_t fruitPos[2] = {0, 0};
+static int8_t fruitPos[2] = {0, 0};
 static uint8_t snakeMode = SNAKE_STATIC;
 static const uint16_t maxSnakePlayingDelay = 200;
 static const uint16_t maxSnakeDeadDelay = 1000;
@@ -58,8 +58,8 @@ void SNAKE_Init(void) {
 	HUB75_Clear();
 	SNAKE_DrawBorder();
 
-	snakePos[0][0] = (uint8_t)(SNAKE_WIDTH / 2);
-	snakePos[0][1] = (uint8_t)(SNAKE_HEIGHT / 2);
+	snakePos[0][0] = (int8_t)(SNAKE_WIDTH / 2);
+	snakePos[0][1] = (int8_t)(SNAKE_HEIGHT / 2);
 	snakePos[1][0] = snakePos[0][0] - 1;
 	snakePos[1][1] = snakePos[0][1];
 	snakePos[2][0] = snakePos[1][0] - 1;
@@ -101,7 +101,7 @@ void SNAKE_Logic(void) {
 			lastMillis += maxSnakePlayingDelay;
 
 			//save previous head position
-			uint8_t prevHead[2];
+			int8_t prevHead[2];
 			prevHead[0] = snakePos[head][0];
 			prevHead[1] = snakePos[head][1];
 
@@ -111,7 +111,7 @@ void SNAKE_Logic(void) {
 				head = tailLen - 1;
 
 			//save previous tail position
-			uint8_t prevTail[2];
+			int8_t prevTail[2];
 			prevTail[0] = snakePos[head][0];
 			prevTail[1] = snakePos[head][1];
 
