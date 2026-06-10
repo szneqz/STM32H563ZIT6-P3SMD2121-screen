@@ -41,7 +41,7 @@ enum SNAKE_MODE {
 };
 
 static int8_t snakePos[MAX_SNAKE_SEGMENTS][2];
-static uint16_t head = 0;
+static int16_t head = 0;
 static uint16_t tailLen = 3;
 static uint8_t snakeDir = SNAKE_RIGHT;
 static uint8_t lastSnakeDir = SNAKE_RIGHT;
@@ -49,8 +49,8 @@ static int8_t fruitPos[2] = {0, 0};
 static uint8_t snakeMode = SNAKE_STATIC;
 static const uint16_t maxSnakePlayingDelay = 200;
 static const uint16_t maxSnakeDeadDelay = 1000;
-static uint8_t snakeDeadBlinks = 6;
-static const uint8_t maxSnakeDeadBlinks = 6;
+static int8_t snakeDeadBlinks = 6;
+static const int8_t maxSnakeDeadBlinks = 6;
 
 void SNAKE_Init(void) {
 	NOKIA_StartDataPrepare();
@@ -87,14 +87,14 @@ void SNAKE_Logic(void) {
 	static uint32_t lastMillis = 0;
 	uint32_t actualMillis = HAL_GetTick();
 
-	//don't try to catch up if long time passed
-	if (actualMillis > (lastMillis + 2000)) lastMillis = actualMillis;
-
 	if (snakeMode == SNAKE_STATIC) {
 		if (SNAKE_CalculateDirection()) {
 			snakeMode = SNAKE_PLAYING;
 		}
 	} else if (snakeMode == SNAKE_PLAYING) {
+		//don't try to catch up if long time passed
+		if (actualMillis > (lastMillis + (maxSnakePlayingDelay * 2))) lastMillis = actualMillis + (maxSnakePlayingDelay / 2);
+
 		SNAKE_CalculateDirection();
 
 		while (actualMillis > lastMillis) {
@@ -182,6 +182,9 @@ void SNAKE_Logic(void) {
 			NOKIA_SendData();
 		}
 	} else if (snakeMode == SNAKE_DEAD) {
+		//don't try to catch up if long time passed
+		if (actualMillis > (lastMillis + (maxSnakeDeadDelay * 2))) lastMillis = actualMillis + (maxSnakeDeadDelay / 2);
+
 		while (actualMillis > lastMillis) {
 			lastMillis += maxSnakeDeadDelay;
 

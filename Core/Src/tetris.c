@@ -412,7 +412,7 @@ static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 	static uint32_t lastMillis = 0;
 
 	//don't try to catch up if long time passed
-	if (actualMillis > (lastMillis + 2000)) lastMillis = actualMillis - 1;
+	if (actualMillis > (lastMillis + (maxMoveTetrisLeftRightDelay * 2))) lastMillis = actualMillis + (maxMoveTetrisLeftRightDelay / 2);
 
 	while (actualMillis > lastMillis) {
 		lastMillis += maxMoveTetrisLeftRightDelay;
