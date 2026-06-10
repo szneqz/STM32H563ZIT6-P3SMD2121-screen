@@ -144,9 +144,10 @@ void SNAKE_Logic(void) {
 			if (HUB75_StartDrawing()) {
 				HUB75_CopyPreviousFrame();
 
+				SNAKE_DrawPixel(prevTail[0], prevTail[1], black, false); //remove segments on previous position of tail
+
 				ColorBitfield tmpColor = HSVtoRGB((float)head / tailLen, 1, 1);
 				SNAKE_DrawPixel(snakePos[head][0], snakePos[head][1], tmpColor, true);
-				SNAKE_DrawPixel(prevTail[0], prevTail[1], black, false); //remove segments on previous position of tail
 
 				SNAKE_DrawPixel(fruitPos[0], fruitPos[1], white, true);
 			}
