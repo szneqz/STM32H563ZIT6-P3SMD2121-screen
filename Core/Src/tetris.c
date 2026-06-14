@@ -46,7 +46,7 @@ static void RotateTetrisFigure(int8_t dir);
 static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis);
 static void CheckWholeLines(int8_t minHeight, int8_t maxHeight);
 static void TETRIS_DrawBorder(void);
-static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor);
+static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, bool ignoreBorders);
 
 enum TETRIS_MODE {
 	TETRIS_DEAD, TETRIS_STATIC, TETRIS_PLAYING
@@ -194,8 +194,7 @@ void TETRIS_Logic(void) {
 				actualFigure = nextFigure;
 				actualFigureColor = tetrisColors[actualFigure];
 				nextFigure = randomNumber % 7;
-				//TODO: Show next figure
-				//DrawAnyFigure(TETRIS_WIDTH + 3, 2, 0, nextFigure);  //draw another figure
+				DrawAnyFigure(TETRIS_WIDTH + 3, 2, 0, nextFigure);  //draw another figure
 				figurePosX = figurePosXStart;
 				figurePosY = 0;
 				figureRot = 0;
@@ -286,12 +285,12 @@ static void DrawFigure(int8_t lastPosX, int8_t lastPosY, int8_t lastRot) {
 
 	for (int8_t i = 0; i < 4; i++) {
 		BlockPosition figureBlockPos = GetFigureBlockPos(i, lastPosX, lastPosY, lastRot, -1);
-		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, black, false);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, black, false, false);
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
 		BlockPosition figureBlockPos = GetFigureBlockPos(i, figurePosX, figurePosY, -1, -1);
-		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, actualFigureColor, true);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, actualFigureColor, true, false);
 	}
 }
 
@@ -303,13 +302,13 @@ static void DrawAnyFigure(int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, i
 
 	for (int8_t i = 0; i < 4; i++) {  //paint black 4 x 4 square
 		for (int8_t j = 0; j < 4; j++) {
-			TETRIS_DrawPixel(myFigPosX + j, myFigPosY + i, black, false);
+			TETRIS_DrawPixel(myFigPosX + j, myFigPosY + i, black, false, true);
 		}
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
 		BlockPosition figureBlockPos = GetFigureBlockPos(i, myFigPosX, myFigPosY, myFigRot, thisFigure);
-		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, tetrisColors[thisFigure], true);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, tetrisColors[thisFigure], true, true);
 	}
 }
 
@@ -468,7 +467,7 @@ static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 			for (int8_t k = actHeight - 1; k >= 0; k--) {
 				for (uint8_t l = 0; l < TETRIS_WIDTH; l++) {
 					tetrisPlayfield[(k + 1) * TETRIS_WIDTH + l] = tetrisPlayfield[k * TETRIS_WIDTH + l];
-					TETRIS_DrawPixel(l, (k + 1), tetrisPlayfield[k * TETRIS_WIDTH + l], tetrisPlayfield[k * TETRIS_WIDTH + l].color > 0);
+					TETRIS_DrawPixel(l, (k + 1), tetrisPlayfield[k * TETRIS_WIDTH + l], tetrisPlayfield[k * TETRIS_WIDTH + l].color > 0, false);
 				}
 			}
 			//TODO: Draw Tetris score here
@@ -506,9 +505,9 @@ static void TETRIS_DrawBorder(void) {
 	NOKIA_SetLine(TETRIS_NOKIA_X1 + 1, TETRIS_NOKIA_Y0, TETRIS_NOKIA_X1 + 1, TETRIS_NOKIA_Y1 + 1, true);
 }
 
-static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor) {
-	if (x >= TETRIS_WIDTH) return;
-	if (y >= TETRIS_HEIGHT) return;
+static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, bool ignoreBorders) {
+	if (x >= TETRIS_WIDTH && !ignoreBorders) return;
+	if (y >= TETRIS_HEIGHT && !ignoreBorders) return;
 
 	if (HUB75_StartDrawing()) {
 		HUB75_SetPixelColor(TETRIS_X00 + x * 2, TETRIS_Y0 + y * 2, hubColor);
