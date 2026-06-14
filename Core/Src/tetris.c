@@ -21,6 +21,9 @@
 #define TETRIS_NOKIA_X1 20
 #define TETRIS_NOKIA_Y0 0
 #define TETRIS_NOKIA_Y1 31
+#define TETRIS_NEXT_BLOCK_X00 29
+#define TETRIS_NEXT_BLOCK_X10 91
+#define TETRIS_NOKIA_NEXT_BLOCK_X0 37
 
 #define TETRIS_NR_FIGURES 7
 
@@ -46,7 +49,7 @@ static void RotateTetrisFigure(int8_t dir);
 static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis);
 static void CheckWholeLines(int8_t minHeight, int8_t maxHeight);
 static void TETRIS_DrawBorder(void);
-static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, bool ignoreBorders);
+static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, int8_t tx0, int8_t tx1, int8_t tnx0, bool ignoreBorders);
 
 enum TETRIS_MODE {
 	TETRIS_DEAD, TETRIS_STATIC, TETRIS_PLAYING
@@ -194,7 +197,7 @@ void TETRIS_Logic(void) {
 				actualFigure = nextFigure;
 				actualFigureColor = tetrisColors[actualFigure];
 				nextFigure = randomNumber % 7;
-				DrawAnyFigure(TETRIS_WIDTH + 3, 2, 0, nextFigure);  //draw another figure
+				DrawAnyFigure(0, 2, 0, nextFigure);  //draw another figure
 				figurePosX = figurePosXStart;
 				figurePosY = 0;
 				figureRot = 0;
@@ -285,12 +288,12 @@ static void DrawFigure(int8_t lastPosX, int8_t lastPosY, int8_t lastRot) {
 
 	for (int8_t i = 0; i < 4; i++) {
 		BlockPosition figureBlockPos = GetFigureBlockPos(i, lastPosX, lastPosY, lastRot, -1);
-		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, black, false, false);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, black, false, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
 		BlockPosition figureBlockPos = GetFigureBlockPos(i, figurePosX, figurePosY, -1, -1);
-		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, actualFigureColor, true, false);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, actualFigureColor, true, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
 	}
 }
 
@@ -302,13 +305,13 @@ static void DrawAnyFigure(int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, i
 
 	for (int8_t i = 0; i < 4; i++) {  //paint black 4 x 4 square
 		for (int8_t j = 0; j < 4; j++) {
-			TETRIS_DrawPixel(myFigPosX + j, myFigPosY + i, black, false, true);
+			TETRIS_DrawPixel(myFigPosX + j, myFigPosY + i, black, false, TETRIS_NEXT_BLOCK_X00, TETRIS_NEXT_BLOCK_X10, TETRIS_NOKIA_NEXT_BLOCK_X0, true);
 		}
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
 		BlockPosition figureBlockPos = GetFigureBlockPos(i, myFigPosX, myFigPosY, myFigRot, thisFigure);
-		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, tetrisColors[thisFigure], true, true);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, tetrisColors[thisFigure], true,TETRIS_NEXT_BLOCK_X00, TETRIS_NEXT_BLOCK_X10, TETRIS_NOKIA_NEXT_BLOCK_X0, true);
 	}
 }
 
@@ -467,7 +470,7 @@ static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 			for (int8_t k = actHeight - 1; k >= 0; k--) {
 				for (uint8_t l = 0; l < TETRIS_WIDTH; l++) {
 					tetrisPlayfield[(k + 1) * TETRIS_WIDTH + l] = tetrisPlayfield[k * TETRIS_WIDTH + l];
-					TETRIS_DrawPixel(l, (k + 1), tetrisPlayfield[k * TETRIS_WIDTH + l], tetrisPlayfield[k * TETRIS_WIDTH + l].color > 0, false);
+					TETRIS_DrawPixel(l, (k + 1), tetrisPlayfield[k * TETRIS_WIDTH + l], tetrisPlayfield[k * TETRIS_WIDTH + l].color > 0, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
 				}
 			}
 			//TODO: Draw Tetris score here
@@ -505,23 +508,23 @@ static void TETRIS_DrawBorder(void) {
 	NOKIA_SetLine(TETRIS_NOKIA_X1 + 1, TETRIS_NOKIA_Y0, TETRIS_NOKIA_X1 + 1, TETRIS_NOKIA_Y1 + 1, true);
 }
 
-static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, bool ignoreBorders) {
+static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, int8_t tx0, int8_t tx1, int8_t tnx0, bool ignoreBorders) {
 	if (x >= TETRIS_WIDTH && !ignoreBorders) return;
 	if (y >= TETRIS_HEIGHT && !ignoreBorders) return;
 
 	if (HUB75_StartDrawing()) {
-		HUB75_SetPixelColor(TETRIS_X00 + x * 2, TETRIS_Y0 + y * 2, hubColor);
-		HUB75_SetPixelColor(TETRIS_X00 + x * 2 + 1, TETRIS_Y0 + y * 2, hubColor);
-		HUB75_SetPixelColor(TETRIS_X00 + x * 2, TETRIS_Y0 + y * 2 + 1, hubColor);
-		HUB75_SetPixelColor(TETRIS_X00 + x * 2 + 1, TETRIS_Y0 + y * 2 + 1, hubColor);
-		HUB75_SetPixelColor(TETRIS_X10 + x * 2, TETRIS_Y0 + y * 2, hubColor);
-		HUB75_SetPixelColor(TETRIS_X10 + x * 2 + 1, TETRIS_Y0 + y * 2, hubColor);
-		HUB75_SetPixelColor(TETRIS_X10 + x * 2, TETRIS_Y0 + y * 2 + 1, hubColor);
-		HUB75_SetPixelColor(TETRIS_X10 + x * 2 + 1, TETRIS_Y0 + y * 2 + 1, hubColor);
+		HUB75_SetPixelColor(tx0 + x * 2, TETRIS_Y0 + y * 2, hubColor);
+		HUB75_SetPixelColor(tx0 + x * 2 + 1, TETRIS_Y0 + y * 2, hubColor);
+		HUB75_SetPixelColor(tx0 + x * 2, TETRIS_Y0 + y * 2 + 1, hubColor);
+		HUB75_SetPixelColor(tx0 + x * 2 + 1, TETRIS_Y0 + y * 2 + 1, hubColor);
+		HUB75_SetPixelColor(tx1 + x * 2, TETRIS_Y0 + y * 2, hubColor);
+		HUB75_SetPixelColor(tx1 + x * 2 + 1, TETRIS_Y0 + y * 2, hubColor);
+		HUB75_SetPixelColor(tx1 + x * 2, TETRIS_Y0 + y * 2 + 1, hubColor);
+		HUB75_SetPixelColor(tx1 + x * 2 + 1, TETRIS_Y0 + y * 2 + 1, hubColor);
 	}
 
-	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2, TETRIS_NOKIA_Y0 + y * 2, nokiaColor);
-	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2, TETRIS_NOKIA_Y0 + y * 2 + 1, nokiaColor);
-	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2 + 1, TETRIS_NOKIA_Y0 + y * 2, nokiaColor);
-	NOKIA_SetPixel(TETRIS_NOKIA_X0 + x * 2 + 1, TETRIS_NOKIA_Y0 + y * 2 + 1, nokiaColor);
+	NOKIA_SetPixel(tnx0 + x * 2, TETRIS_NOKIA_Y0 + y * 2, nokiaColor);
+	NOKIA_SetPixel(tnx0 + x * 2, TETRIS_NOKIA_Y0 + y * 2 + 1, nokiaColor);
+	NOKIA_SetPixel(tnx0 + x * 2 + 1, TETRIS_NOKIA_Y0 + y * 2, nokiaColor);
+	NOKIA_SetPixel(tnx0 + x * 2 + 1, TETRIS_NOKIA_Y0 + y * 2 + 1, nokiaColor);
 }
