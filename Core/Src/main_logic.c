@@ -128,8 +128,6 @@ void LogicInit(void) {
 
 	if (isBacklight) HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_SET);
 	else HAL_GPIO_WritePin(NOKIA_LED_GPIO_Port, NOKIA_LED_Pin, GPIO_PIN_RESET);
-
-	HAL_GPIO_WritePin(FAN_GPIO_Port, FAN_Pin, GPIO_PIN_SET);	//Enable fan
 }
 
 void LogicLoop(void) {

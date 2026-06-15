@@ -91,19 +91,14 @@ static inline void prv_SetABCD(uint8_t abcd)
  * @brief  Latch a completed row: disable OE → assert LAT → release LAT → enable OE.
  *         The OE blanking prevents display glitches (ghosting) during latching.
  */
-static inline void prv_LatchRow(void)
+static inline void prv_LatchRowStart(void)
 {
-    /* Blank the display while we latch to avoid row-ghosting                */
     HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_SET);   /* OE off  */
 
     HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_SET);   /* LAT hi  */
-    /* Minimum LAT pulse width is typically ≥20 ns; at 250 MHz one __NOP()   *
-     * ≈ 4 ns — eight NOPs ≈ 32 ns.  Add more if your panel requires it.      */
-    for (int i = 0; i < 8; i++)
-    {
-    	__NOP();
-    }
+}
 
+static inline void prv_LatchRowEnd(void) {
     HAL_GPIO_WritePin(HUB75_LAT_PORT, HUB75_LAT_PIN, GPIO_PIN_RESET);  /* LAT lo  */
 
     HAL_GPIO_WritePin(HUB75_OE_PORT,  HUB75_OE_PIN,  GPIO_PIN_RESET);  /* OE on   */
@@ -179,8 +174,9 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
 	static uint8_t abcd = 0;
 
     // Latch row and set address lines
-    prv_LatchRow();
+	prv_LatchRowStart();
     prv_SetABCD(abcd);
+    prv_LatchRowEnd();
 
     // Increment row counter
     abcd++;
