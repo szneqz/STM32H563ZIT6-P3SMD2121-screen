@@ -21,7 +21,7 @@
 #define TETRIS_NOKIA_X1 20
 #define TETRIS_NOKIA_Y0 0
 #define TETRIS_NOKIA_Y1 31
-#define TETRIS_NEXT_BLOCK_X00 29
+#define TETRIS_NEXT_BLOCK_X00 31
 #define TETRIS_NEXT_BLOCK_X10 91
 #define TETRIS_NOKIA_NEXT_BLOCK_X0 37
 
@@ -414,10 +414,12 @@ static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 	static uint32_t lastMillis = 0;
 
 	//don't try to catch up if long time passed
-	if (actualMillis > (lastMillis + (maxMoveTetrisLeftRightDelay * 2))) lastMillis = actualMillis + (maxMoveTetrisLeftRightDelay / 2);
+	if (actualMillis > (lastMillis + maxMoveTetrisLeftRightDelay + 1)) lastMillis = actualMillis + 1;
 
 	while (actualMillis > lastMillis) {
 		lastMillis += maxMoveTetrisLeftRightDelay;
+
+		if (actualMillis > lastMillis) lastMillis = actualMillis + 1;
 
 		if (tetrisMode == TETRIS_PLAYING) {
 			bool canMove = true;
