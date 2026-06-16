@@ -422,6 +422,7 @@ static void LogicGamesMenu(void) {
 	if (isInGame && GAMEPAD_GetHoldButton(LEFT) && GAMEPAD_GetHoldButton(RIGHT) && GAMEPAD_GetHoldButton(B)) {
 		isInGame = false;
 		isNokiaUpdated = false;
+		ApplyEmoteColor();
 	}
 
 	if (isInGame) {
@@ -555,9 +556,9 @@ static void AssignRealEmblemColor(void) {
 }
 
 static ColorBitfield RainbowColorChange(void) {
-	static uint8_t hueDirection = 4;	//0 - G grow, 1 - R decline, 2 - B grow, 3 - G decline, 4 - R grow, 5 - B decline
 	static ColorBitfield rgb = {0x001f};
 	static uint32_t lastMillis = 0;
+	static uint8_t lastH = 0;
 	uint32_t actualMillis = HAL_GetTick();
 
 	while (actualMillis > lastMillis) {
@@ -566,50 +567,10 @@ static ColorBitfield RainbowColorChange(void) {
 
 		lastMillis += maxMillisRainbowStep;
 
-		switch(hueDirection) {
-		case 0:
-			rgb.bits.g += 5;
-			if (rgb.bits.g >= 31) {
-				rgb.bits.g = 30;
-				hueDirection = 1;
-			}
-			break;
-		case 1:
-			rgb.bits.r -= 5;
-			if (rgb.bits.r == 0 || rgb.bits.r >= 32) {
-				rgb.bits.r = 0;
-				hueDirection = 2;
-			}
-			break;
-		case 2:
-			rgb.bits.b += 5;
-			if (rgb.bits.b >= 31) {
-				rgb.bits.b = 30;
-				hueDirection = 3;
-			}
-			break;
-		case 3:
-			rgb.bits.g -= 5;
-			if (rgb.bits.g == 0 || rgb.bits.g >= 32) {
-				rgb.bits.g = 0;
-				hueDirection = 4;
-			}
-			break;
-		case 4:
-			rgb.bits.r += 5;
-			if (rgb.bits.r >= 31) {
-				rgb.bits.r = 30;
-				hueDirection = 5;
-			}
-			break;
-		case 5:
-			rgb.bits.b -= 5;
-			if (rgb.bits.b == 0 || rgb.bits.b >= 32) {
-				rgb.bits.b = 0;
-				hueDirection = 0;
-			}
-			break;
-		}
+		rgb = HSVtoRGB((float)lastH / 100, 1, 1);
+
+		lastH++;
+		if (lastH >= 100) lastH = 0;
 	}
 
 	return rgb;
