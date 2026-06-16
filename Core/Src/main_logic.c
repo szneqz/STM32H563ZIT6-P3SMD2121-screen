@@ -49,11 +49,11 @@ static uint8_t mainMenuSelected = EMOTES;
 // Emotes submenu
 static char *emotesNames[] = {" Pro_STD   ", " Pro_Happy ", " Pro_Sad   ", " Pro_^^    ", " Pro_Dizzy ", " Pro_Arouse", " Pro_Love  ", " Pro_Flat  ",
 		" Pro_Shock ", "Pro_Dead   ",
-		" Yes       ", " No        ", " Warning   ", " No Signal ", " Low Batter", " Charging  ", " Full Batt ", " Test      "};
+		" Yes       ", " No        ", " Warning   ", " No Signal ", " Low Batter", " Charging  ", " Full Batt ", " Test      ", " LGBT      "};
 static bool emotesDefaultNoColor[] = {false, false, false, false, false, false, false, false,
 									false, false,
-									true, true, true, true, true, true, true, true};
-static uint8_t emotesNamesSize = 18;
+									true, true, true, true, true, true, true, true, true};
+static uint8_t emotesNamesSize = 19;
 static uint8_t markedEmote = 0;
 static uint8_t selectedEmote = 0;
 static uint8_t emotesScrollOffset = 0;
@@ -92,16 +92,16 @@ static bool isBacklight = true;
 // Glitch
 static bool isGlitch = false;
 
-static ColorBitfield (*protogen_emotes[18])[32][128] = {
+static ColorBitfield (*protogen_emotes[19])[32][128] = {
 		protogen_neutral, protogen_happy, protogen_sad, protogen_dashdash, protogen_dizzy, protogen_aroused, protogen_love, protogen_flat,
 		protogen_shocked, protogen_dead,
-		protogen_yes, protogen_no, protogen_warning, protogen_nosignal, protogen_low_battery, protogen_charging, protogen_full_battery, protogen_test
+		protogen_yes, protogen_no, protogen_warning, protogen_nosignal, protogen_low_battery, protogen_charging, protogen_full_battery, protogen_test, protogen_LGBT
 };
 
-static uint8_t nrFrames[18] = {4, 1, 2, 1, 4, 2, 2, 1,
+static uint8_t nrFrames[19] = {4, 1, 2, 1, 4, 2, 2, 1,
 							  1, 1,
-							  1, 1, 1, 1, 2, 5, 1, 1};
-static uint16_t lenFrames[18][5] = {
+							  1, 1, 1, 1, 2, 5, 1, 1, 1};
+static uint16_t lenFrames[19][5] = {
 		{5000, 250, 250, 250, 1},
 		{1, 1, 1, 1, 1},
 		{1000, 1000, 1, 1, 1},
@@ -118,6 +118,7 @@ static uint16_t lenFrames[18][5] = {
 		{1, 1, 1, 1, 1},
 		{1000, 1000, 1, 1, 1},
 		{500, 500, 500, 500, 500},
+		{1, 1, 1, 1, 1},
 		{1, 1, 1, 1, 1},
 		{1, 1, 1, 1, 1}
 };
