@@ -24,6 +24,11 @@
 #define TETRIS_NEXT_BLOCK_X00 31
 #define TETRIS_NEXT_BLOCK_X10 91
 #define TETRIS_NOKIA_NEXT_BLOCK_X0 37
+#define TETRIS_SCORE_X0 3
+#define TETRIS_SCORE_X1 90
+#define TETRIS_SCORE_Y 1
+#define TETRIS_NOKIA_SCORE_X 1
+#define TETRIS_NOKIA_SCORE_Y 39
 
 #define TETRIS_NR_FIGURES 7
 
@@ -108,6 +113,7 @@ static const int16_t deadDelay = 3000;
 static int8_t actualMovementBlockDelay = movementBlockDelay;
 static int8_t blockDelay = movementBlockDelay;
 static int8_t startBlockDelay = movementBlockDelay;
+static ColorBitfield scoreColor = { .bits.r = 30, .bits.g = 16, .bits.b = 0 };
 static uint16_t tetrisScore = 0;
 
 static bool previousNokiaFrameCopied = false;
@@ -126,6 +132,10 @@ void TETRIS_Init(void) {
 	nextFigure = randomNumber % TETRIS_NR_FIGURES;
 	tetrisMode = TETRIS_STATIC;
 	tetrisScore = 0;
+
+	HUB75_SetStr("000000", TETRIS_SCORE_X0, TETRIS_SCORE_Y, scoreColor, false, false);
+	HUB75_SetStr("000000", TETRIS_SCORE_X1, TETRIS_SCORE_Y, scoreColor, false, false);
+	NOKIA_SetStr("000000", TETRIS_NOKIA_SCORE_X, TETRIS_NOKIA_SCORE_Y, true, false, false);
 
 	NOKIA_StopDataPrepare();
 	NOKIA_SendData();
@@ -197,7 +207,7 @@ void TETRIS_Logic(void) {
 				actualFigure = nextFigure;
 				actualFigureColor = tetrisColors[actualFigure];
 				nextFigure = randomNumber % 7;
-				DrawAnyFigure(0, 2, 0, nextFigure);  //draw another figure
+				DrawAnyFigure(0, 6, 0, nextFigure);  //draw another figure
 				figurePosX = figurePosXStart;
 				figurePosY = 0;
 				figureRot = 0;
@@ -463,6 +473,7 @@ static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 	uint8_t iterations = minHeight - maxHeight + 1;
 	uint8_t actHeight = minHeight;
+	uint16_t tmpScore = 0;
 
 	for (uint8_t i = 0; i < iterations; i++) {
 		bool scorePoints = true;
@@ -483,8 +494,23 @@ static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 			}
 			//TODO: Draw Tetris score here
 
-			tetrisScore++;
+			tmpScore++;
 		}
+	}
+
+	if (tmpScore > 0) {
+		tetrisScore += tmpScore * tmpScore;
+		if (tetrisScore >= 1000000) {
+			tetrisScore = 0;
+		}
+
+		char tetrisScoreStr[7]; // 6 digits + null terminator
+
+		snprintf(tetrisScoreStr, sizeof(tetrisScoreStr), "%06u", tetrisScore);
+
+		HUB75_SetStr(tetrisScoreStr, TETRIS_SCORE_X0, TETRIS_SCORE_Y, scoreColor, false, false);
+		HUB75_SetStr(tetrisScoreStr, TETRIS_SCORE_X1, TETRIS_SCORE_Y, scoreColor, false, false);
+		NOKIA_SetStr(tetrisScoreStr, TETRIS_NOKIA_SCORE_X, TETRIS_NOKIA_SCORE_Y, true, false, false);
 	}
 }
 

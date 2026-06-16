@@ -123,6 +123,9 @@ void HUB75_ChangeDrawFrameColor(ColorBitfield color);
  */
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b);
 
+void HUB75_SetChar(char character, int x, int y, ColorBitfield color, bool transparent);
+void HUB75_SetStr(char * dString, int x, int y, ColorBitfield color, bool transparent, bool wrapAround);
+
 /**
  * @brief  Clear (turn off) all pixels.
  */
