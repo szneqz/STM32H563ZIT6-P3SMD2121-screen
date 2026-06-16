@@ -252,7 +252,9 @@ void TETRIS_Logic(void) {
 					CheckWholeLines(minHeight, maxHeight);
 				}
 			}
+		}
 
+		if (previousNokiaFrameCopied) {
 			NOKIA_StopDataPrepare();
 			NOKIA_SendData();
 		}
@@ -286,9 +288,13 @@ static BlockPosition GetFigureBlockPos(uint8_t i, int8_t myFigPosX, int8_t myFig
 static void DrawFigure(int8_t lastPosX, int8_t lastPosY, int8_t lastRot) {
 	if (lastRot == -1) lastRot = figureRot;
 
-	for (int8_t i = 0; i < 4; i++) {
-		BlockPosition figureBlockPos = GetFigureBlockPos(i, lastPosX, lastPosY, lastRot, -1);
-		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, black, false, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
+	for (int8_t i = -1; i < 5; i++) {
+		for (int8_t j = -1; j < 5; j++) {
+			if (i + lastPosX >= 0 && i + lastPosX < TETRIS_WIDTH && j + lastPosY >= 0 && j + lastPosY < TETRIS_HEIGHT) {
+				ColorBitfield backgroundColor = tetrisPlayfield[(j + lastPosY) * TETRIS_WIDTH + i + lastPosX];
+				TETRIS_DrawPixel(i + lastPosX, j + lastPosY, backgroundColor, backgroundColor.color > 0x0000, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
+			}
+		}
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
