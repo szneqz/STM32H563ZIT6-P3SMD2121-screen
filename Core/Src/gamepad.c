@@ -1,32 +1,32 @@
 #include "gamepad.h"
 
-static uint8_t gamepad_up_count = 0;
-static uint8_t gamepad_down_count = 0;
-static uint8_t gamepad_left_count = 0;
-static uint8_t gamepad_right_count = 0;
-static uint8_t gamepad_a_count = 0;
-static uint8_t gamepad_b_count = 0;
+uint8_t gamepad_up_count = 0;
+uint8_t gamepad_down_count = 0;
+uint8_t gamepad_left_count = 0;
+uint8_t gamepad_right_count = 0;
+uint8_t gamepad_a_count = 0;
+uint8_t gamepad_b_count = 0;
 
-static bool gamepad_up_hold = false;
-static bool gamepad_down_hold = false;
-static bool gamepad_left_hold = false;
-static bool gamepad_right_hold = false;
-static bool gamepad_a_hold = false;
-static bool gamepad_b_hold = false;
+bool gamepad_up_hold = false;
+bool gamepad_down_hold = false;
+bool gamepad_left_hold = false;
+bool gamepad_right_hold = false;
+bool gamepad_a_hold = false;
+bool gamepad_b_hold = false;
 
-static bool gamepad_up_click = false;
-static bool gamepad_down_click = false;
-static bool gamepad_left_click = false;
-static bool gamepad_right_click = false;
-static bool gamepad_a_click = false;
-static bool gamepad_b_click = false;
+bool gamepad_up_click = false;
+bool gamepad_down_click = false;
+bool gamepad_left_click = false;
+bool gamepad_right_click = false;
+bool gamepad_a_click = false;
+bool gamepad_b_click = false;
 
-static bool gamepad_up_click_read = false;
-static bool gamepad_down_click_read = false;
-static bool gamepad_left_click_read = false;
-static bool gamepad_right_click_read = false;
-static bool gamepad_a_click_read = false;
-static bool gamepad_b_click_read = false;
+bool gamepad_up_click_read = false;
+bool gamepad_down_click_read = false;
+bool gamepad_left_click_read = false;
+bool gamepad_right_click_read = false;
+bool gamepad_a_click_read = false;
+bool gamepad_b_click_read = false;
 
 void GAMEPAD_Reset(void) {
 	gamepad_up_count = 0;

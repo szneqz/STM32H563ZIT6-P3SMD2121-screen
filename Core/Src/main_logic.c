@@ -30,11 +30,11 @@ static void DrawEmblem(ColorBitfield color);
 static void BacklightLogic(void);
 static void GlitchLogic(void);
 
-static bool isNokiaUpdated = false;
+bool isNokiaUpdated = false;
 											  //red,     green,    blue,     cyan,     magenta,  yellow,   white,    nocolor
-static const ColorBitfield possibleColors[] = {{0x7c00}, {0x03e0}, {0x001f}, {0x03ff}, {0x7c1f}, {0x7fe0}, {0x7fff}, {0x0000}};
-static const char colorNames[] = {'R', 'G', 'B', 'C', 'M', 'Y', 'W', 'N', '$'};	// N - no color, $ - rainbow
-static const uint32_t maxMillisRainbowStep = 60;
+const ColorBitfield possibleColors[] = {{0x7c00}, {0x03e0}, {0x001f}, {0x03ff}, {0x7c1f}, {0x7fe0}, {0x7fff}, {0x0000}};
+const char colorNames[] = {'R', 'G', 'B', 'C', 'M', 'Y', 'W', 'N', '$'};	// N - no color, $ - rainbow
+const uint32_t maxMillisRainbowStep = 60;
 
 // Main Menu
 enum MENU_TYPE {
@@ -43,65 +43,65 @@ enum MENU_TYPE {
 enum MAIN_MENU_SELECTIONS {
 	EMOTES, GAMES, EMBLEM, BACKLIGHT, GLITCH, MAIN_MENU_SELECTIONS_COUNT
 };
-static uint8_t menuType = MAIN_MENU;
-static uint8_t mainMenuSelected = EMOTES;
+uint8_t menuType = MAIN_MENU;
+uint8_t mainMenuSelected = EMOTES;
 
 // Emotes submenu
-static char *emotesNames[] = {" Pro_STD   ", " Pro_Happy ", " Pro_Sad   ", " Pro_^^    ", " Pro_Dizzy ", " Pro_Arouse", " Pro_Love  ", " Pro_Flat  ",
-		" Pro_Shock ", "Pro_Dead   ",
+const char *emotesNames[] = {" Pro_STD   ", " Pro_Happy ", " Pro_Sad   ", " Pro_^^    ", " Pro_Dizzy ", " Pro_Arouse", " Pro_Love  ", " Pro_Flat  ",
+		" Pro_Shock ", " Pro_Dead  ",
 		" Yes       ", " No        ", " Warning   ", " No Signal ", " Low Batter", " Charging  ", " Full Batt ", " Test      ", " LGBT      "};
-static bool emotesDefaultNoColor[] = {false, false, false, false, false, false, false, false,
+bool emotesDefaultNoColor[] = {false, false, false, false, false, false, false, false,
 									false, false,
 									true, true, true, true, true, true, true, true, true};
-static uint8_t emotesNamesSize = 19;
-static uint8_t markedEmote = 0;
-static uint8_t selectedEmote = 0;
-static uint8_t emotesScrollOffset = 0;
+const uint8_t emotesNamesSize = 19;
+uint8_t markedEmote = 0;
+uint8_t selectedEmote = 0;
+uint8_t emotesScrollOffset = 0;
 enum EMOTES_SUB_MENU {
 	EMOTES_EMOTE, EMOTES_COLOR, EMOTES_R, EMOTES_G, EMOTES_B
 };
-static uint8_t emotesSubMenu = EMOTES_EMOTE;
-static uint8_t selectedEmoteColor = 2;	//default blue
-static bool isEmoteRainbowMode = false;
-static uint8_t pickedEmoteRed = 0b00000;
-static uint8_t pickedEmoteGreen = 0b00000;
-static uint8_t pickedEmoteBlue = 0b11111;
+uint8_t emotesSubMenu = EMOTES_EMOTE;
+uint8_t selectedEmoteColor = 2;	//default blue
+bool isEmoteRainbowMode = false;
+uint8_t pickedEmoteRed = 0b00000;
+uint8_t pickedEmoteGreen = 0b00000;
+uint8_t pickedEmoteBlue = 0b11111;
 
 // Games submenu
 enum GAMES_SUB_MENU {
 	SNAKE, TETRIS, GAMES_MENU_SELECTIONS_COUNT
 };
-static uint8_t gamesSubMenuSelected = SNAKE;
-static bool isInGame = false;
-static uint8_t gameStarted = SNAKE;
+uint8_t gamesSubMenuSelected = SNAKE;
+bool isInGame = false;
+uint8_t gameStarted = SNAKE;
 
 // Emblem submenu
 enum EMBLEM_SUB_MENU {
 	EMBLEM_COLOR, EMBLEM_R, EMBLEM_G, EMBLEM_B
 };
-static uint8_t emblemSubMenu = EMBLEM_COLOR;
-static uint8_t selectedEmblemColor = 2;	//default blue
-static bool isEmblemRainbowMode = false;
-static uint8_t pickedEmblemRed = 0b00000;
-static uint8_t pickedEmblemGreen = 0b00000;
-static uint8_t pickedEmblemBlue = 0b11111;
+uint8_t emblemSubMenu = EMBLEM_COLOR;
+uint8_t selectedEmblemColor = 2;	//default blue
+bool isEmblemRainbowMode = false;
+uint8_t pickedEmblemRed = 0b00000;
+uint8_t pickedEmblemGreen = 0b00000;
+uint8_t pickedEmblemBlue = 0b11111;
 
 // Backlight
-static bool isBacklight = true;
+bool isBacklight = true;
 
 // Glitch
-static bool isGlitch = false;
+bool isGlitch = false;
 
-static ColorBitfield (*protogen_emotes[19])[32][128] = {
+const ColorBitfield (*protogen_emotes[19])[32][128] = {
 		protogen_neutral, protogen_happy, protogen_sad, protogen_dashdash, protogen_dizzy, protogen_aroused, protogen_love, protogen_flat,
 		protogen_shocked, protogen_dead,
 		protogen_yes, protogen_no, protogen_warning, protogen_nosignal, protogen_low_battery, protogen_charging, protogen_full_battery, protogen_test, protogen_LGBT
 };
 
-static uint8_t nrFrames[19] = {4, 1, 2, 1, 4, 2, 2, 1,
+const uint8_t nrFrames[19] = {4, 1, 2, 1, 4, 2, 2, 1,
 							  1, 1,
 							  1, 1, 1, 1, 2, 5, 1, 1, 1};
-static uint16_t lenFrames[19][5] = {
+const uint16_t lenFrames[19][5] = {
 		{5000, 250, 250, 250, 1},
 		{1, 1, 1, 1, 1},
 		{1000, 1000, 1, 1, 1},
@@ -122,7 +122,7 @@ static uint16_t lenFrames[19][5] = {
 		{1, 1, 1, 1, 1},
 		{1, 1, 1, 1, 1}
 };
-static uint8_t emoteFrameNr = 0;
+uint8_t emoteFrameNr = 0;
 
 void LogicInit(void) {
 	AssignRealEmoteColor();
@@ -586,9 +586,12 @@ static void EmoteFrameChange(void) {
 
 	if (nrFrames[selectedEmote] > 1) {
 		uint32_t actualMillis = HAL_GetTick();
+
+		if (actualMillis < (lastMillis - lenFrames[selectedEmote][emoteFrameNr] - 100)) lastMillis = actualMillis - 1;
+
 		while (actualMillis > lastMillis) {
 			//don't try to catch up if long time passed
-			if (actualMillis > (lastMillis + 10000)) lastMillis = actualMillis;
+			if (actualMillis > (lastMillis + lenFrames[selectedEmote][emoteFrameNr] + 100)) lastMillis = actualMillis;
 
 			emoteFrameNr++;
 			if (emoteFrameNr >= nrFrames[selectedEmote]) {

@@ -1,19 +1,19 @@
 #include "nokia3310.h"
 #include <string.h>
 
-static SPI_HandleTypeDef *s_hspi = NULL;
+SPI_HandleTypeDef *s_hspi = NULL;
 volatile bool spi_busy = 0;
 
-static uint8_t s_framebuf[2][NOKIA_PANEL_DATA_SIZE];
-static uint8_t s_datatype[2];
-static uint16_t s_datasize[2];
+uint8_t NOKIA_s_framebuf[2][NOKIA_PANEL_DATA_SIZE];
+uint8_t NOKIA_s_datatype[2];
+uint16_t NOKIA_s_datasize[2];
 
-static uint8_t current_draw_frame = 1;
-static uint8_t current_display_frame = 1;
-static bool isDrawing = false;
-static bool alreadyDisplayed = false;
+uint8_t NOKIA_current_draw_frame = 1;
+uint8_t NOKIA_current_display_frame = 1;
+bool NOKIA_isDrawing = false;
+bool NOKIA_alreadyDisplayed = false;
 
-static const unsigned char ASCII[][5] = {
+static const unsigned char HUB75_ASCII[][5] = {
   // First 32 characters (0x00-0x19) are ignored. These are
   // non-displayable, control characters.
    {0x00, 0x00, 0x00, 0x00, 0x00} // 0x20
@@ -125,9 +125,9 @@ void NOKIA_Unselect(void) {
 void NOKIA_SendCmd(uint8_t *cmd, uint16_t size)
 {
 	if (NOKIA_StartDataPrepare()) {
-	memcpy(s_framebuf[current_draw_frame], cmd, size);
-	s_datatype[current_draw_frame] = NOKIA_CMD_TYPE;
-	s_datasize[current_draw_frame] = size;
+	memcpy(NOKIA_s_framebuf[NOKIA_current_draw_frame], cmd, size);
+	NOKIA_s_datatype[NOKIA_current_draw_frame] = NOKIA_CMD_TYPE;
+	NOKIA_s_datasize[NOKIA_current_draw_frame] = size;
 	NOKIA_StopDataPrepare();
 	}
 
@@ -136,7 +136,7 @@ void NOKIA_SendCmd(uint8_t *cmd, uint16_t size)
 		if (NOKIA_SwapDisplayFrame()) {
 			HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, GPIO_PIN_RESET); // command
 			NOKIA_Select();
-			HAL_SPI_Transmit_DMA(s_hspi, s_framebuf[current_display_frame], s_datasize[current_display_frame]);
+			HAL_SPI_Transmit_DMA(s_hspi, NOKIA_s_framebuf[NOKIA_current_display_frame], NOKIA_s_datasize[NOKIA_current_display_frame]);
 		}
 	}
 }
@@ -147,13 +147,13 @@ void NOKIA_SendData(void) {
 		if (NOKIA_SwapDisplayFrame()) {
 			HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, GPIO_PIN_SET); // data
 			NOKIA_Select();
-			HAL_SPI_Transmit_DMA(s_hspi, s_framebuf[current_display_frame], s_datasize[current_display_frame]);
+			HAL_SPI_Transmit_DMA(s_hspi, NOKIA_s_framebuf[NOKIA_current_display_frame], NOKIA_s_datasize[NOKIA_current_display_frame]);
 		}
 	}
 }
 
 void NOKIA_CopyPreviousFrame(void) {
-	memcpy(s_framebuf[current_draw_frame], s_framebuf[current_display_frame], NOKIA_PANEL_DATA_SIZE);
+	memcpy(NOKIA_s_framebuf[NOKIA_current_draw_frame], NOKIA_s_framebuf[NOKIA_current_display_frame], NOKIA_PANEL_DATA_SIZE);
 }
 
 void NOKIA_SetPixel(uint8_t x, uint8_t y, bool bw) {
@@ -161,9 +161,9 @@ void NOKIA_SetPixel(uint8_t x, uint8_t y, bool bw) {
 		int index = x + (y / 8) * NOKIA_PANEL_WIDTH;
 
 		if (bw)
-			s_framebuf[current_draw_frame][index] |= (1 << (y % 8));
+			NOKIA_s_framebuf[NOKIA_current_draw_frame][index] |= (1 << (y % 8));
 		else
-			s_framebuf[current_draw_frame][index] &= ~(1 << (y % 8));
+			NOKIA_s_framebuf[NOKIA_current_draw_frame][index] &= ~(1 << (y % 8));
     }
 }
 
@@ -301,7 +301,7 @@ void NOKIA_SetChar(char character, int x, int y, bool bw, bool transparent)
 	int column; // temp byte to store character's column bitmap
 	for (int i=0; i<5; i++) // 5 columns (x) per character
 	{
-		column = ASCII[character - 0x20][i];
+		column = HUB75_ASCII[character - 0x20][i];
 		for (int j=0; j<8; j++) // 8 rows (y) per character
 		{
 			if (column & (0x01 << j)) {// test bits to set pixels
@@ -353,26 +353,26 @@ void NOKIA_SetStr(char * dString, int x, int y, bool bw, bool transparent, bool 
 
 
 bool NOKIA_StartDataPrepare(void) {
-	if (current_display_frame == (current_draw_frame ^ 1)) {
-		isDrawing = false;
+	if (NOKIA_current_display_frame == (NOKIA_current_draw_frame ^ 1)) {
+		NOKIA_isDrawing = false;
 		return false;
 	}
-	current_draw_frame ^= 1;
-	isDrawing = true;
-	s_datatype[current_draw_frame] = NOKIA_DATA_TYPE;
-	s_datasize[current_draw_frame] = NOKIA_PANEL_DATA_SIZE;
+	NOKIA_current_draw_frame ^= 1;
+	NOKIA_isDrawing = true;
+	NOKIA_s_datatype[NOKIA_current_draw_frame] = NOKIA_DATA_TYPE;
+	NOKIA_s_datasize[NOKIA_current_draw_frame] = NOKIA_PANEL_DATA_SIZE;
 	return true;
 }
 
 void NOKIA_StopDataPrepare(void) {
-	isDrawing = false;
-	alreadyDisplayed = false;
+	NOKIA_isDrawing = false;
+	NOKIA_alreadyDisplayed = false;
 }
 
 bool NOKIA_SwapDisplayFrame(void) {
-	if (!alreadyDisplayed && (!isDrawing || current_draw_frame != (current_display_frame ^ 1))) {
-		current_display_frame ^= 1;
-		alreadyDisplayed = true;
+	if (!NOKIA_alreadyDisplayed && (!NOKIA_isDrawing || NOKIA_current_draw_frame != (NOKIA_current_display_frame ^ 1))) {
+		NOKIA_current_display_frame ^= 1;
+		NOKIA_alreadyDisplayed = true;
 		return true;
 	}
 	return false;
@@ -408,10 +408,10 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
     if (hspi->Instance == SPI1) {
     	if (NOKIA_SwapDisplayFrame() && hspi->State == HAL_SPI_STATE_READY) {
-    		HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, s_datatype[current_display_frame] ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    		HAL_GPIO_WritePin(NOKIA_DC_PORT, NOKIA_DC_PIN, NOKIA_s_datatype[NOKIA_current_display_frame] ? GPIO_PIN_SET : GPIO_PIN_RESET);
     		NOKIA_Select();
 
-    		HAL_SPI_Transmit_DMA(s_hspi, s_framebuf[current_display_frame], s_datasize[current_display_frame]);
+    		HAL_SPI_Transmit_DMA(s_hspi, NOKIA_s_framebuf[NOKIA_current_display_frame], NOKIA_s_datasize[NOKIA_current_display_frame]);
     	} else {
 			NOKIA_Unselect();
 			spi_busy = false;
@@ -421,5 +421,5 @@ void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 
 void NOKIA_Clear(void)
 {
-	memset(s_framebuf, 0, sizeof(s_framebuf));
+	memset(NOKIA_s_framebuf, 0, sizeof(NOKIA_s_framebuf));
 }

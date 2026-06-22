@@ -23,9 +23,9 @@
 
 extern volatile uint32_t randomNumber;
 
-static ColorBitfield black = { 0x0000 };
-static ColorBitfield white = { 0x7FFF };
-static ColorBitfield weakWhite = { .bits.r = 15, .bits.g = 15, .bits.b = 15 };
+const ColorBitfield SNAKE_black = { 0x0000 };
+const ColorBitfield SNAKE_white = { 0x7FFF };
+const ColorBitfield SNAKE_weakWhite = { .bits.r = 15, .bits.g = 15, .bits.b = 15 };
 
 static void SNAKE_DrawBorder(void);
 static void SNAKE_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor);
@@ -40,17 +40,17 @@ enum SNAKE_MODE {
 	SNAKE_DEAD, SNAKE_STATIC, SNAKE_PLAYING
 };
 
-static int8_t snakePos[MAX_SNAKE_SEGMENTS][2];
-static int16_t head = 0;
-static uint16_t tailLen = 3;
-static uint8_t snakeDir = SNAKE_RIGHT;
-static uint8_t lastSnakeDir = SNAKE_RIGHT;
-static int8_t fruitPos[2] = {0, 0};
-static uint8_t snakeMode = SNAKE_STATIC;
-static const uint16_t maxSnakePlayingDelay = 200;
-static const uint16_t maxSnakeDeadDelay = 1000;
-static int8_t snakeDeadBlinks = 6;
-static const int8_t maxSnakeDeadBlinks = 6;
+int8_t snakePos[MAX_SNAKE_SEGMENTS][2];
+int16_t head = 0;
+uint16_t tailLen = 3;
+uint8_t snakeDir = SNAKE_RIGHT;
+uint8_t lastSnakeDir = SNAKE_RIGHT;
+int8_t fruitPos[2] = {0, 0};
+uint8_t snakeMode = SNAKE_STATIC;
+const uint16_t maxSnakePlayingDelay = 200;
+const uint16_t maxSnakeDeadDelay = 1000;
+int8_t snakeDeadBlinks = 6;
+const int8_t maxSnakeDeadBlinks = 6;
 
 void SNAKE_Init(void) {
 	NOKIA_StartDataPrepare();
@@ -71,7 +71,7 @@ void SNAKE_Init(void) {
 	snakeDir = SNAKE_RIGHT;
 	lastSnakeDir = SNAKE_RIGHT;
 	SNAKE_SpawnFruit();
-	SNAKE_DrawPixel(fruitPos[0], fruitPos[1], white, true);
+	SNAKE_DrawPixel(fruitPos[0], fruitPos[1], SNAKE_white, true);
 	snakeMode = SNAKE_STATIC;
 
 	for (uint16_t i = 0; i < tailLen; i++) {
@@ -144,12 +144,12 @@ void SNAKE_Logic(void) {
 			if (HUB75_StartDrawing()) {
 				HUB75_CopyPreviousFrame();
 
-				SNAKE_DrawPixel(prevTail[0], prevTail[1], black, false); //remove segments on previous position of tail
+				SNAKE_DrawPixel(prevTail[0], prevTail[1], SNAKE_black, false); //remove segments on previous position of tail
 
 				ColorBitfield tmpColor = HSVtoRGB((float)head / tailLen, 1, 1);
 				SNAKE_DrawPixel(snakePos[head][0], snakePos[head][1], tmpColor, true);
 
-				SNAKE_DrawPixel(fruitPos[0], fruitPos[1], white, true);
+				SNAKE_DrawPixel(fruitPos[0], fruitPos[1], SNAKE_white, true);
 			}
 
 			//scoring point
@@ -203,7 +203,7 @@ void SNAKE_Logic(void) {
 				}
 			} else {
 				for (uint16_t i = 0; i < tailLen; i++) {
-					SNAKE_DrawPixel(snakePos[i][0], snakePos[i][1], black, true);
+					SNAKE_DrawPixel(snakePos[i][0], snakePos[i][1], SNAKE_black, true);
 				}
 			}
 
@@ -244,26 +244,26 @@ static void SNAKE_DrawBorder(void) {
 		uint8_t y1 = SNAKE_Y1 + 1;
 
 		for (uint8_t x = x0; x <= x1; x++) {
-			HUB75_SetPixelColor(x, y0, weakWhite);
-			HUB75_SetPixelColor(x, y1, weakWhite);
+			HUB75_SetPixelColor(x, y0, SNAKE_weakWhite);
+			HUB75_SetPixelColor(x, y1, SNAKE_weakWhite);
 		}
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, weakWhite);
-			HUB75_SetPixelColor(x1, y, weakWhite);
+			HUB75_SetPixelColor(x0, y, SNAKE_weakWhite);
+			HUB75_SetPixelColor(x1, y, SNAKE_weakWhite);
 		}
 
 		x0 = SNAKE_X10 - 1;
 		x1 = SNAKE_X11 + 1;
 
 		for (uint8_t x = x0; x <= x1; x++) {
-			HUB75_SetPixelColor(x, y0, weakWhite);
-			HUB75_SetPixelColor(x, y1, weakWhite);
+			HUB75_SetPixelColor(x, y0, SNAKE_weakWhite);
+			HUB75_SetPixelColor(x, y1, SNAKE_weakWhite);
 		}
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, weakWhite);
-			HUB75_SetPixelColor(x1, y, weakWhite);
+			HUB75_SetPixelColor(x0, y, SNAKE_weakWhite);
+			HUB75_SetPixelColor(x1, y, SNAKE_weakWhite);
 		}
 	}
 

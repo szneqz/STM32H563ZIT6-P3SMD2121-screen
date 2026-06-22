@@ -42,7 +42,7 @@
 /* ── Private state ──────────────────────────────────────────────────────── */
 
 /** Saved handle pointer passed to HUB75_Init(). */
-static XSPI_HandleTypeDef *s_hospi = NULL;
+XSPI_HandleTypeDef *s_hospi = NULL;
 
 /**
  * Software framebuffer — one byte per pixel per row-pair.
@@ -57,20 +57,20 @@ static XSPI_HandleTypeDef *s_hospi = NULL;
  *   [1] G1 — top-half green
  *   [0] R1 — top-half red
  *
- * Addressing: s_framebuf[row_pair][col]
+ * Addressing: HUB75_s_framebuf[row_pair][col]
  *   row_pair = 0 … HUB75_ROW_PAIRS-1
  *   col      = 0 … HUB75_PANEL_WIDTH-1
  */
-static ColorBitfield s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
-static uint8_t framebuf_row[HUB75_PANEL_WIDTH];
+ColorBitfield HUB75_s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
+uint8_t HUB75_framebuf_row[HUB75_PANEL_WIDTH];
 
-static uint8_t current_draw_frame = 1;
-static uint8_t current_display_frame = 1;
-static bool isDrawing = false;
-static bool alreadyDisplayed = false;
+uint8_t HUB75_current_draw_frame = 1;
+uint8_t HUB75_current_display_frame = 1;
+bool HUB75_isDrawing = false;
+bool HUB75_alreadyDisplayed = false;
 
-static const ColorBitfield black = { .bits.r = 0, .bits.g = 0, .bits.b = 0 };
-static const unsigned char ASCII[][5] = {
+const ColorBitfield black = { .bits.r = 0, .bits.g = 0, .bits.b = 0 };
+const unsigned char NOKIA_ASCII[][5] = {
   // First 32 characters (0x00-0x19) are ignored. These are
   // non-displayable, control characters.
    {0x00, 0x00, 0x00, 0x00, 0x00} // 0x20
@@ -268,7 +268,7 @@ void HUB75_Init(XSPI_HandleTypeDef *hospi)
     HUB75_Clear();
 
     HUB75_PrepareRowToDraw(0);
-    prv_OSPIStartSend((uint8_t *)(uintptr_t)framebuf_row);
+    prv_OSPIStartSend((uint8_t *)(uintptr_t)HUB75_framebuf_row);
 }
 
 // Called when DMA transfer completes
@@ -291,7 +291,7 @@ void HAL_XSPI_TxCpltCallback(XSPI_HandleTypeDef *hxspi) {
 
     // Try starting next DMA immediately
     if (hxspi->State == HAL_XSPI_STATE_READY) {
-    	HAL_StatusTypeDef status = prv_OSPIStartSend((uint8_t *)(uintptr_t)framebuf_row);
+    	HAL_StatusTypeDef status = prv_OSPIStartSend((uint8_t *)(uintptr_t)HUB75_framebuf_row);
 
     	if (status != HAL_OK)
     	{
@@ -311,12 +311,12 @@ void HUB75_PrepareRowToDraw(uint8_t abcd)
     static uint8_t pwm_step = 0;
 
     const ColorBitfield * const restrict row0 =
-        s_framebuf[current_display_frame][abcd];
+        HUB75_s_framebuf[HUB75_current_display_frame][abcd];
 
     const ColorBitfield * const restrict row1 =
-        s_framebuf[current_display_frame][abcd + HUB75_ROW_PAIRS];
+        HUB75_s_framebuf[HUB75_current_display_frame][abcd + HUB75_ROW_PAIRS];
 
-    uint8_t * const restrict out = framebuf_row;
+    uint8_t * const restrict out = HUB75_framebuf_row;
 
     for (uint32_t i = 0; i < HUB75_PANEL_WIDTH; i++) {
         // temporal PWM compare
@@ -343,73 +343,73 @@ void HUB75_PrepareRowToDraw(uint8_t abcd)
 }
 
 bool HUB75_StartDrawing(void) {
-	if (!isDrawing) {
-		if (current_display_frame == (current_draw_frame ^ 1)) {
-			isDrawing = false;
+	if (!HUB75_isDrawing) {
+		if (HUB75_current_display_frame == (HUB75_current_draw_frame ^ 1)) {
+			HUB75_isDrawing = false;
 			return false;
 		}
-		current_draw_frame ^= 1;
-		isDrawing = true;
+		HUB75_current_draw_frame ^= 1;
+		HUB75_isDrawing = true;
 		return true;
 	}
 	return true;
 }
 
 void HUB75_StopDrawing(void) {
-	if (isDrawing) {
-		isDrawing = false;
-		alreadyDisplayed = false;
+	if (HUB75_isDrawing) {
+		HUB75_isDrawing = false;
+		HUB75_alreadyDisplayed = false;
 	}
 }
 
 void HUB75_SwapDisplayFrame(void) {
-	if (!alreadyDisplayed && (!isDrawing || current_draw_frame != (current_display_frame ^ 1))) {
-		current_display_frame ^= 1;
-		alreadyDisplayed = true;
+	if (!HUB75_alreadyDisplayed && (!HUB75_isDrawing || HUB75_current_draw_frame != (HUB75_current_display_frame ^ 1))) {
+		HUB75_current_display_frame ^= 1;
+		HUB75_alreadyDisplayed = true;
 	}
 }
 
 void HUB75_CopyFrame(ColorBitfield *frame, uint16_t size) {
-	memcpy(s_framebuf[current_draw_frame], frame, (size * 2));
+	memcpy(HUB75_s_framebuf[HUB75_current_draw_frame], frame, (size * 2));
 }
 
 void HUB75_CopyPreviousFrame(void) {
-	memcpy(s_framebuf[current_draw_frame], s_framebuf[current_display_frame], (HUB75_PANEL_HEIGHT * HUB75_PANEL_WIDTH * 2));
+	memcpy(HUB75_s_framebuf[HUB75_current_draw_frame], HUB75_s_framebuf[HUB75_current_display_frame], (HUB75_PANEL_HEIGHT * HUB75_PANEL_WIDTH * 2));
 }
 
 void HUB75_SetPixelRGB(uint16_t x, uint16_t y,
                     uint8_t r, uint8_t g, uint8_t b)
 {
-	if (!isDrawing) return;
+	if (!HUB75_isDrawing) return;
     if (y >= HUB75_PANEL_HEIGHT || x >= HUB75_PANEL_WIDTH) return;
 
-    s_framebuf[current_draw_frame][y][x].bits.r = r;
-    s_framebuf[current_draw_frame][y][x].bits.g = g;
-    s_framebuf[current_draw_frame][y][x].bits.b = b;
+    HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.r = r;
+    HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.g = g;
+    HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.b = b;
 }
 
 void HUB75_SetPixelColor(uint16_t x, uint16_t y,
 						ColorBitfield color)
 {
-	if (!isDrawing) return;
+	if (!HUB75_isDrawing) return;
     if (y >= HUB75_PANEL_HEIGHT || x >= HUB75_PANEL_WIDTH) return;
 
-    s_framebuf[current_draw_frame][y][x] = color;
+    HUB75_s_framebuf[HUB75_current_draw_frame][y][x] = color;
 }
 
 void HUB75_ChangeDrawFrameColor(ColorBitfield color) {
 	for (int y = 0; y < HUB75_PANEL_HEIGHT; y++) {
 		for (int x = 0; x < HUB75_PANEL_WIDTH; x++) {
-			if (s_framebuf[current_draw_frame][y][x].color != 0 && s_framebuf[current_draw_frame][y][x].bits.mask == false) {
+			if (HUB75_s_framebuf[HUB75_current_draw_frame][y][x].color != 0 && HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.mask == false) {
 				float strength = (float)(
-						s_framebuf[current_draw_frame][y][x].bits.r * 2 +
-						s_framebuf[current_draw_frame][y][x].bits.g * 5 +
-						s_framebuf[current_draw_frame][y][x].bits.b)
+						HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.r * 2 +
+						HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.g * 5 +
+						HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.b)
 						/ 248;
 				// 8 color strength divided by 31 max = 248
-				s_framebuf[current_draw_frame][y][x].bits.r = color.bits.r * strength;
-				s_framebuf[current_draw_frame][y][x].bits.g = color.bits.g * strength;
-				s_framebuf[current_draw_frame][y][x].bits.b = color.bits.b * strength;
+				HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.r = color.bits.r * strength;
+				HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.g = color.bits.g * strength;
+				HUB75_s_framebuf[HUB75_current_draw_frame][y][x].bits.b = color.bits.b * strength;
 			}
 		}
 	}
@@ -427,7 +427,7 @@ void HUB75_SetChar(char character, int x, int y, ColorBitfield color, bool trans
 	int column; // temp byte to store character's column bitmap
 	for (int i=0; i<5; i++) // 5 columns (x) per character
 	{
-		column = ASCII[character - 0x20][i];
+		column = NOKIA_ASCII[character - 0x20][i];
 		for (int j=0; j<8; j++) // 8 rows (y) per character
 		{
 			if (column & (0x01 << j)) {// test bits to set pixels
@@ -483,6 +483,6 @@ void HUB75_Clear(void)
     /*
      * Zero all color bits
      */
-    memset(s_framebuf, 0, sizeof(s_framebuf));
-    memset(framebuf_row, 0, sizeof(framebuf_row));
+    memset(HUB75_s_framebuf, 0, sizeof(HUB75_s_framebuf));
+    memset(HUB75_framebuf_row, 0, sizeof(HUB75_framebuf_row));
 }

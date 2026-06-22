@@ -40,11 +40,11 @@ typedef struct
 
 extern volatile uint32_t randomNumber;
 
-static ColorBitfield black = { 0x0000 };
-static ColorBitfield weakWhite = { .bits.r = 15, .bits.g = 15, .bits.b = 15 };
+const ColorBitfield TETRIS_black = { 0x0000 };
+const ColorBitfield TETRIS_weakWhite = { .bits.r = 15, .bits.g = 15, .bits.b = 15 };
 
-static const unsigned long maxTetrisGameDelay = 30;
-static const unsigned long maxMoveTetrisLeftRightDelay = 200;
+const unsigned long maxTetrisGameDelay = 30;
+const unsigned long maxMoveTetrisLeftRightDelay = 200;
 
 static BlockPosition GetFigureBlockPos(uint8_t i, int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, int8_t thisFigure);
 static void DrawFigure(int8_t lastPosX, int8_t lastPosY, int8_t lastRot);
@@ -60,15 +60,15 @@ enum TETRIS_MODE {
 	TETRIS_DEAD, TETRIS_STATIC, TETRIS_PLAYING
 };
 
-static ColorBitfield tetrisPlayfield[TETRIS_PIXEL_SIZE];
+ColorBitfield tetrisPlayfield[TETRIS_PIXEL_SIZE];
 
-static int8_t figurePosX = 0;
-static int8_t figurePosY = 0;
-static const int8_t figurePosXStart = 3;
-static int8_t figureRot = 0;  //4 rotations
+int8_t figurePosX = 0;
+int8_t figurePosY = 0;
+const int8_t figurePosXStart = 3;
+int8_t figureRot = 0;  //4 rotations
 //cyan, 	red, 	  green, 	blue, 	  orange, 	magenta,  yellow
-static ColorBitfield tetrisColors[TETRIS_NR_FIGURES] = { {0x03ff}, {0x7c00}, {0x03e0}, {0x001f}, {0x7e00}, {0x7c1f}, {0x7fe0} };
-static int8_t figures[TETRIS_NR_FIGURES][4][4] = {
+const ColorBitfield tetrisColors[TETRIS_NR_FIGURES] = { {0x03ff}, {0x7c00}, {0x03e0}, {0x001f}, {0x7e00}, {0x7c1f}, {0x7fe0} };
+const int8_t figures[TETRIS_NR_FIGURES][4][4] = {
 		{ { 4, 5, 6, 7 }, { 2, 6, 10, 14 }, { 8, 9, 10, 11 }, { 1, 5, 9, 13 } },  // line
 		{ { 0, 1, 5, 6 }, { 2, 5, 6, 9 }, { 4, 5, 9, 10 }, { 1, 4, 5, 8 } },      // Z
 		{ { 1, 2, 4, 5 }, { 1, 5, 6, 10 }, { 5, 6, 8, 9 }, { 0, 4, 5, 9 } },      // Z reversed
@@ -77,47 +77,47 @@ static int8_t figures[TETRIS_NR_FIGURES][4][4] = {
 		{ { 1, 4, 5, 6 }, { 1, 5, 6, 9 }, { 4, 5, 6, 9 }, { 1, 4, 5, 9 } },       // |-
 		{ { 1, 2, 5, 6 }, { 1, 2, 5, 6 }, { 1, 2, 5, 6 }, { 1, 2, 5, 6 } }        // square
 };
-static const int8_t wallKicksAmount = 5;
-static int8_t regularWallKicksClockwise[4][5][2] = {
+const int8_t wallKicksAmount = 5;
+const int8_t regularWallKicksClockwise[4][5][2] = {
 		{ { 0, 0 }, { -1, 0 }, { -1, -1 }, { 0, 2 }, { -1, 2 } },  //0>>1
 		{ { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, -2 }, { 1, -2 } },    //1>>2
 		{ { 0, 0 }, { 1, 0 }, { 1, -1 }, { 0, 2 }, { 1, 2 } },     //2>>3
 		{ { 0, 0 }, { -1, 0 }, { -1, 1 }, { 0, -2 }, { -1, -2 } }  //3>>0
 };
-static int8_t regularWallKicksCounterClockwise[4][5][2] = {
+const int8_t regularWallKicksCounterClockwise[4][5][2] = {
 		{ { 0, 0 }, { 1, 0 }, { 1, -1 }, { 0, 2 }, { 1, 2 } },     //0>>3
 		{ { 0, 0 }, { 1, 0 }, { 1, 1 }, { 0, -2 }, { 1, -2 } },    //1>>0
 		{ { 0, 0 }, { -1, 0 }, { -1, -1 }, { 0, 2 }, { -1, 2 } },  //2>>1
 		{ { 0, 0 }, { -1, 0 }, { -1, 1 }, { 0, -2 }, { -1, -2 } }  //3>>2
 };
-static int8_t iWallKicksClockwise[4][5][2] = {
+const int8_t iWallKicksClockwise[4][5][2] = {
 		{ { 0, 0 }, { -2, 0 }, { 1, 0 }, { -2, 1 }, { 1, -2 } },  //0>>1
 		{ { 0, 0 }, { -1, 0 }, { 2, 0 }, { -1, -2 }, { 2, 1 } },  //1>>2
 		{ { 0, 0 }, { 2, 0 }, { -1, 0 }, { 2, -1 }, { -1, 2 } },  //2>>3
 		{ { 0, 0 }, { 1, 0 }, { -2, 0 }, { 1, 2 }, { -2, -1 } }   //3>>0
 };
-static int8_t iWallKicksCounterClockwise[4][5][2] = {
+const int8_t iWallKicksCounterClockwise[4][5][2] = {
 		{ { 0, 0 }, { -1, 0 }, { 2, 0 }, { -1, -2 }, { 2, 1 } },  //0>>3
 		{ { 0, 0 }, { 2, 0 }, { -1, 0 }, { 2, -1 }, { -1, 2 } },  //1>>0
 		{ { 0, 0 }, { 1, 0 }, { -2, 0 }, { 1, 2 }, { -2, -1 } },  //2>>1
 		{ { 0, 0 }, { -2, 0 }, { 1, 0 }, { -2, 1 }, { 1, -2 } }   //3>>2
 };
-static int8_t nextFigure = 0;
-static int8_t actualFigure = 0;
-static ColorBitfield actualFigureColor = {0x03ff};
-static bool randomizeFigure = false;      //if create new random figure
-static int8_t tetrisMode = TETRIS_STATIC;
-static const int8_t fastMovementBlockDelay = 1;
-static const int8_t movementBlockDelay = 20;
-static const int16_t deadDelay = 3000;
-static int8_t actualMovementBlockDelay = movementBlockDelay;
-static int8_t blockDelay = movementBlockDelay;
-static int8_t startBlockDelay = movementBlockDelay;
-static ColorBitfield scoreColor = { .bits.r = 30, .bits.g = 16, .bits.b = 0 };
-static uint16_t tetrisScore = 0;
+int8_t nextFigure = 0;
+int8_t actualFigure = 0;
+ColorBitfield actualFigureColor = {0x03ff};
+bool randomizeFigure = false;      //if create new random figure
+int8_t tetrisMode = TETRIS_STATIC;
+const int8_t fastMovementBlockDelay = 1;
+const int8_t movementBlockDelay = 20;
+const int16_t deadDelay = 3000;
+int8_t actualMovementBlockDelay = movementBlockDelay;
+int8_t blockDelay = movementBlockDelay;
+int8_t startBlockDelay = movementBlockDelay;
+ColorBitfield scoreColor = { .bits.r = 30, .bits.g = 16, .bits.b = 0 };
+uint16_t tetrisScore = 0;
 
-static bool previousNokiaFrameCopied = false;
-static bool previousHUB75FrameCopied = false;
+bool previousNokiaFrameCopied = false;
+bool previousHUB75FrameCopied = false;
 
 void TETRIS_Init(void) {
 	NOKIA_StartDataPrepare();
@@ -319,9 +319,9 @@ static void DrawAnyFigure(int8_t myFigPosX, int8_t myFigPosY, int8_t myFigRot, i
 	if (myFigRot == -1) myFigRot = figureRot;
 	if (thisFigure == -1) thisFigure = actualFigure;
 
-	for (int8_t i = 0; i < 4; i++) {  //paint black 4 x 4 square
+	for (int8_t i = 0; i < 4; i++) {  //paint TETRIS_black 4 x 4 square
 		for (int8_t j = 0; j < 4; j++) {
-			TETRIS_DrawPixel(myFigPosX + j, myFigPosY + i, black, false, TETRIS_NEXT_BLOCK_X00, TETRIS_NEXT_BLOCK_X10, TETRIS_NOKIA_NEXT_BLOCK_X0, true);
+			TETRIS_DrawPixel(myFigPosX + j, myFigPosY + i, TETRIS_black, false, TETRIS_NEXT_BLOCK_X00, TETRIS_NEXT_BLOCK_X10, TETRIS_NOKIA_NEXT_BLOCK_X0, true);
 		}
 	}
 
@@ -523,16 +523,16 @@ static void TETRIS_DrawBorder(void) {
 		uint8_t y1 = TETRIS_Y1;
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, weakWhite);
-			HUB75_SetPixelColor(x1, y, weakWhite);
+			HUB75_SetPixelColor(x0, y, TETRIS_weakWhite);
+			HUB75_SetPixelColor(x1, y, TETRIS_weakWhite);
 		}
 
 		x0 = TETRIS_X10 - 1;
 		x1 = TETRIS_X11 + 1;
 
 		for (uint8_t y = y0; y <= y1; y++) {
-			HUB75_SetPixelColor(x0, y, weakWhite);
-			HUB75_SetPixelColor(x1, y, weakWhite);
+			HUB75_SetPixelColor(x0, y, TETRIS_weakWhite);
+			HUB75_SetPixelColor(x1, y, TETRIS_weakWhite);
 		}
 	}
 
