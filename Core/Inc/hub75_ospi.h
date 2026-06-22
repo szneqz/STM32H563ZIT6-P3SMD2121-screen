@@ -130,6 +130,7 @@ void HUB75_SetStr(char * dString, int x, int y, ColorBitfield color, bool transp
  * @brief  Clear (turn off) all pixels.
  */
 void HUB75_Clear(void);
+void HUB75_ClearActive(void);
 
 /**
  * @brief  Push the framebuffer to the panel.

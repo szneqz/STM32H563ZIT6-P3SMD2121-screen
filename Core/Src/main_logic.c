@@ -26,7 +26,6 @@ static void LogicEmblemMenu(void);
 static void ApplyEmblemColor(void);
 static void AssignRealEmblemColor(void);
 static void EmoteFrameChange(void);
-static void DrawEmblem(ColorBitfield color);
 static void BacklightLogic(void);
 static void GlitchLogic(void);
 
@@ -375,9 +374,7 @@ static void AssignRealEmoteColor(void) {
 		ColorBitfield pickedEmoteColor = { .bits.r = pickedEmoteRed, .bits.g = pickedEmoteGreen, .bits.b = pickedEmoteBlue };
 		if (pickedEmoteColor.color != possibleColors[NO_COLOR].color)	//if no color then don't change color
 			HUB75_ChangeDrawFrameColor(pickedEmoteColor);
-		ColorBitfield emblemColor = { .bits.r = pickedEmblemRed, .bits.g = pickedEmblemGreen, .bits.b = pickedEmblemBlue};
-		if (emblemColor.color != possibleColors[NO_COLOR].color)	//if no color then don't override color
-			DrawEmblem(emblemColor);
+		DrawEmblem();
 	}
 }
 
@@ -416,6 +413,8 @@ static void LogicGamesMenu(void) {
 				gameStarted = TETRIS;
 				TETRIS_Init();
 			}
+
+			DrawEmblem();
 
 			isInGame = true;
 
@@ -464,8 +463,8 @@ static void DrawEmblemMenu(void) {
 
 static void LogicEmblemMenu(void) {
 	if (!isNokiaUpdated) {
-			DrawEmblemMenu();
-		}
+		DrawEmblemMenu();
+	}
 
 		if (GAMEPAD_GetClickButton(UP)) {
 			if (emblemSubMenu == EMBLEM_COLOR) {
@@ -554,9 +553,7 @@ static void ApplyEmblemColor(void) {
 static void AssignRealEmblemColor(void) {
 	if(HUB75_StartDrawing()) {
 		HUB75_CopyPreviousFrame();
-		ColorBitfield emblemColor = { .bits.r = pickedEmblemRed, .bits.g = pickedEmblemGreen, .bits.b = pickedEmblemBlue};
-		if (emblemColor.color != possibleColors[NO_COLOR].color)	//if no color then don't override color
-			DrawEmblem(emblemColor);
+		DrawEmblem();
 	}
 }
 
@@ -606,64 +603,66 @@ static void EmoteFrameChange(void) {
 }
 
 //ALWAYS put it between StartDrawing - StopDrawing
-static void DrawEmblem(ColorBitfield color) {
-	if(HUB75_StartDrawing()) {
-		for (int i = 31; i >= 19; i--) {
-			for (int j = 0; j <= 4; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+void DrawEmblem(void) {
+	ColorBitfield color = { .bits.r = pickedEmblemRed, .bits.g = pickedEmblemGreen, .bits.b = pickedEmblemBlue};
+	if (color.color != possibleColors[NO_COLOR].color)	//if no color then don't override color
+		if(HUB75_StartDrawing()) {
+			for (int i = 31; i >= 19; i--) {
+				for (int j = 0; j <= 4; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
-		}
 
-		for (int i = 31; i >= 20; i--) {
-			for (int j = 5; j <= 6; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+			for (int i = 31; i >= 20; i--) {
+				for (int j = 5; j <= 6; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
-		}
 
-		for (int i = 31; i >= 21; i--) {
-			for (int j = 7; j <= 8; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+			for (int i = 31; i >= 21; i--) {
+				for (int j = 7; j <= 8; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
-		}
 
-		for (int i = 31; i >= 22; i--) {
-			for (int j = 9; j <= 9; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+			for (int i = 31; i >= 22; i--) {
+				for (int j = 9; j <= 9; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
-		}
 
-		for (int i = 31; i >= 23; i--) {
-			for (int j = 10; j <= 10; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+			for (int i = 31; i >= 23; i--) {
+				for (int j = 10; j <= 10; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
-		}
 
-		for (int i = 31; i >= 24; i--) {
-			for (int j = 11; j <= 11; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+			for (int i = 31; i >= 24; i--) {
+				for (int j = 11; j <= 11; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
-		}
 
-		for (int i = 31; i >= 26; i--) {
-			for (int j = 12; j <= 12; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+			for (int i = 31; i >= 26; i--) {
+				for (int j = 12; j <= 12; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
-		}
 
-		for (int i = 31; i >= 28; i--) {
-			for (int j = 13; j <= 13; j++) {
-				HUB75_SetPixelColor(j, i, color);
-				HUB75_SetPixelColor(127 - j , i, color);
+			for (int i = 31; i >= 28; i--) {
+				for (int j = 13; j <= 13; j++) {
+					HUB75_SetPixelColor(j, i, color);
+					HUB75_SetPixelColor(127 - j , i, color);
+				}
 			}
 		}
-	}
 }
 
 static void BacklightLogic(void) {

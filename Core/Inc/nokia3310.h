@@ -45,5 +45,6 @@ bool NOKIA_SwapDisplayFrame(void);
 void NOKIA_Reset(void);
 void NOKIA_Init(SPI_HandleTypeDef *hspi);
 void NOKIA_Clear(void);
+void NOKIA_ClearActive(void);
 
 #endif /* SRC_NOKIA3310_H_ */

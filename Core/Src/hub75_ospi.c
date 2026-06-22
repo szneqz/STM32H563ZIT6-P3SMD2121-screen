@@ -478,11 +478,14 @@ void HUB75_SetStr(char * dString, int x, int y, ColorBitfield color, bool transp
 }
 
 
-void HUB75_Clear(void)
-{
+void HUB75_Clear(void) {
     /*
      * Zero all color bits
      */
     memset(HUB75_s_framebuf, 0, sizeof(HUB75_s_framebuf));
     memset(HUB75_framebuf_row, 0, sizeof(HUB75_framebuf_row));
+}
+
+void HUB75_ClearActive(void) {
+	memset(HUB75_s_framebuf[HUB75_current_draw_frame], 0, sizeof(HUB75_s_framebuf[HUB75_current_draw_frame]));
 }

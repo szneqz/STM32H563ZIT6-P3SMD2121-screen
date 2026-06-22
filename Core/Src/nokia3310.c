@@ -423,3 +423,8 @@ void NOKIA_Clear(void)
 {
 	memset(NOKIA_s_framebuf, 0, sizeof(NOKIA_s_framebuf));
 }
+
+void NOKIA_ClearActive(void)
+{
+	memset(NOKIA_s_framebuf[NOKIA_current_draw_frame], 0, sizeof(NOKIA_s_framebuf[NOKIA_current_draw_frame]));
+}

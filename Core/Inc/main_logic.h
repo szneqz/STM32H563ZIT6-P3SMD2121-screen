@@ -14,5 +14,6 @@
 
 void LogicInit(void);
 void LogicLoop(void);
+void DrawEmblem(void);
 
 #endif /* INC_MAIN_LOGIC_H_ */

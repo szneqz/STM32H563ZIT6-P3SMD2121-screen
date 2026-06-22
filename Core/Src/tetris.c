@@ -7,6 +7,7 @@
 
 #include "tetris.h"
 #include <string.h>
+#include "main_logic.h"
 
 #define TETRIS_WIDTH 10
 #define TETRIS_HEIGHT 16
@@ -54,6 +55,8 @@ static void RotateTetrisFigure(int8_t dir);
 static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis);
 static void CheckWholeLines(int8_t minHeight, int8_t maxHeight);
 static void TETRIS_DrawBorder(void);
+static void TETRIS_RedrawAll(void);
+static void TETRIS_DrawScore(void);
 static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, int8_t tx0, int8_t tx1, int8_t tnx0, bool ignoreBorders);
 
 enum TETRIS_MODE {
@@ -118,6 +121,7 @@ uint16_t tetrisScore = 0;
 
 bool previousNokiaFrameCopied = false;
 bool previousHUB75FrameCopied = false;
+bool isTetrisFrameBroken = false;
 
 void TETRIS_Init(void) {
 	NOKIA_StartDataPrepare();
@@ -147,6 +151,10 @@ void TETRIS_Logic(void) {
 
 	previousNokiaFrameCopied = false;
 	previousHUB75FrameCopied = false;
+
+	if (isTetrisFrameBroken) {
+		TETRIS_RedrawAll();
+	}
 
 	//don't try to catch up if long time passed
 	if (actualMillis > (lastMillis + 2000)) lastMillis = actualMillis;
@@ -200,6 +208,9 @@ void TETRIS_Logic(void) {
 				if (HUB75_StartDrawing()) {
 					HUB75_CopyPreviousFrame();
 					previousHUB75FrameCopied = true;
+				}
+				else {
+					isTetrisFrameBroken = true;
 				}
 			}
 
@@ -298,13 +309,9 @@ static BlockPosition GetFigureBlockPos(uint8_t i, int8_t myFigPosX, int8_t myFig
 static void DrawFigure(int8_t lastPosX, int8_t lastPosY, int8_t lastRot) {
 	if (lastRot == -1) lastRot = figureRot;
 
-	for (int8_t i = -1; i < 5; i++) {
-		for (int8_t j = -1; j < 5; j++) {
-			if (i + lastPosX >= 0 && i + lastPosX < TETRIS_WIDTH && j + lastPosY >= 0 && j + lastPosY < TETRIS_HEIGHT) {
-				ColorBitfield backgroundColor = tetrisPlayfield[(j + lastPosY) * TETRIS_WIDTH + i + lastPosX];
-				TETRIS_DrawPixel(i + lastPosX, j + lastPosY, backgroundColor, backgroundColor.color > 0x0000, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
-			}
-		}
+	for (int8_t i = 0; i < 4; i++) {
+		BlockPosition figureBlockPos = GetFigureBlockPos(i, lastPosX, lastPosY, lastRot, -1);
+		TETRIS_DrawPixel(figureBlockPos.x, figureBlockPos.y, TETRIS_black, false, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
 	}
 
 	for (int8_t i = 0; i < 4; i++) {
@@ -366,6 +373,9 @@ static void RotateTetrisFigure(int8_t dir)  //1 - clockwise  -1 - counter clockw
 		if (HUB75_StartDrawing()) {
 			HUB75_CopyPreviousFrame();
 			previousHUB75FrameCopied = true;
+		}
+		else {
+			isTetrisFrameBroken = true;
 		}
 	}
 
@@ -462,6 +472,9 @@ static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 						HUB75_CopyPreviousFrame();
 						previousHUB75FrameCopied = true;
 					}
+					else {
+						isTetrisFrameBroken = true;
+					}
 				}
 
 				DrawFigure(figurePosX - dir, figurePosY, -1);
@@ -492,7 +505,6 @@ static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 					TETRIS_DrawPixel(l, (k + 1), tetrisPlayfield[k * TETRIS_WIDTH + l], tetrisPlayfield[k * TETRIS_WIDTH + l].color > 0, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
 				}
 			}
-			//TODO: Draw Tetris score here
 
 			tmpScore++;
 		}
@@ -504,13 +516,7 @@ static void CheckWholeLines(int8_t minHeight, int8_t maxHeight) {
 			tetrisScore = 0;
 		}
 
-		char tetrisScoreStr[7]; // 6 digits + null terminator
-
-		snprintf(tetrisScoreStr, sizeof(tetrisScoreStr), "%06u", tetrisScore);
-
-		HUB75_SetStr(tetrisScoreStr, TETRIS_SCORE_X0, TETRIS_SCORE_Y, scoreColor, false, false);
-		HUB75_SetStr(tetrisScoreStr, TETRIS_SCORE_X1, TETRIS_SCORE_Y, scoreColor, false, false);
-		NOKIA_SetStr(tetrisScoreStr, TETRIS_NOKIA_SCORE_X, TETRIS_NOKIA_SCORE_Y, true, false, false);
+		TETRIS_DrawScore();
 	}
 }
 
@@ -535,11 +541,52 @@ static void TETRIS_DrawBorder(void) {
 			HUB75_SetPixelColor(x1, y, TETRIS_weakWhite);
 		}
 	}
+	else {
+		isTetrisFrameBroken = true;
+	}
 
 	//NOKIA SCREEN
 	NOKIA_SetLine(TETRIS_NOKIA_X0 - 1, TETRIS_NOKIA_Y1 + 1, TETRIS_NOKIA_X1 + 1, TETRIS_NOKIA_Y1 + 1, true);
 	NOKIA_SetLine(TETRIS_NOKIA_X0 - 1, TETRIS_NOKIA_Y0, TETRIS_NOKIA_X0 - 1, TETRIS_NOKIA_Y1 + 1, true);
 	NOKIA_SetLine(TETRIS_NOKIA_X1 + 1, TETRIS_NOKIA_Y0, TETRIS_NOKIA_X1 + 1, TETRIS_NOKIA_Y1 + 1, true);
+}
+
+static void TETRIS_RedrawAll(void) {
+	if (HUB75_StartDrawing()) {
+		NOKIA_StartDataPrepare();
+		NOKIA_ClearActive();
+
+		HUB75_ClearActive();
+		TETRIS_DrawBorder();
+
+		DrawFigure(figurePosX, figurePosY, -1);
+		DrawAnyFigure(0, 6, 0, nextFigure);
+
+		TETRIS_DrawScore();
+
+		for (int i = 0; i < TETRIS_PIXEL_SIZE; i++) {
+			if (tetrisPlayfield[i].color > 0) {
+				TETRIS_DrawPixel(i % TETRIS_WIDTH, i / TETRIS_WIDTH, tetrisPlayfield[i], true, TETRIS_X00, TETRIS_X10, TETRIS_NOKIA_X0, false);
+			}
+		}
+
+		DrawEmblem();
+
+		NOKIA_StopDataPrepare();
+		NOKIA_SendData();
+
+		isTetrisFrameBroken = false;
+	}
+}
+
+static void TETRIS_DrawScore(void) {
+	char tetrisScoreStr[7]; // 6 digits + null terminator
+
+	snprintf(tetrisScoreStr, sizeof(tetrisScoreStr), "%06u", tetrisScore);
+
+	HUB75_SetStr(tetrisScoreStr, TETRIS_SCORE_X0, TETRIS_SCORE_Y, scoreColor, false, false);
+	HUB75_SetStr(tetrisScoreStr, TETRIS_SCORE_X1, TETRIS_SCORE_Y, scoreColor, false, false);
+	NOKIA_SetStr(tetrisScoreStr, TETRIS_NOKIA_SCORE_X, TETRIS_NOKIA_SCORE_Y, true, false, false);
 }
 
 static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool nokiaColor, int8_t tx0, int8_t tx1, int8_t tnx0, bool ignoreBorders) {
@@ -555,6 +602,9 @@ static void TETRIS_DrawPixel(uint8_t x, uint8_t y, ColorBitfield hubColor, bool 
 		HUB75_SetPixelColor(tx1 + x * 2 + 1, TETRIS_Y0 + y * 2, hubColor);
 		HUB75_SetPixelColor(tx1 + x * 2, TETRIS_Y0 + y * 2 + 1, hubColor);
 		HUB75_SetPixelColor(tx1 + x * 2 + 1, TETRIS_Y0 + y * 2 + 1, hubColor);
+	}
+	else {
+		isTetrisFrameBroken = true;
 	}
 
 	NOKIA_SetPixel(tnx0 + x * 2, TETRIS_NOKIA_Y0 + y * 2, nokiaColor);
