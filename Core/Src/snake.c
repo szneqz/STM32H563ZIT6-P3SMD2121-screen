@@ -47,7 +47,9 @@ uint8_t snakeDir = SNAKE_RIGHT;
 uint8_t lastSnakeDir = SNAKE_RIGHT;
 int8_t fruitPos[2] = {0, 0};
 uint8_t snakeMode = SNAKE_STATIC;
-const uint16_t maxSnakePlayingDelay = 200;
+uint16_t maxSnakePlayingDelay = 200;
+const uint16_t maxSlowSnakePlayingDelay = 200;
+const uint16_t maxFastSnakePlayingDelay = 80;
 const uint16_t maxSnakeDeadDelay = 1000;
 int8_t snakeDeadBlinks = 6;
 const int8_t maxSnakeDeadBlinks = 6;
@@ -92,6 +94,12 @@ void SNAKE_Logic(void) {
 			snakeMode = SNAKE_PLAYING;
 		}
 	} else if (snakeMode == SNAKE_PLAYING) {
+		if (GAMEPAD_GetHoldButton(A)) {
+			maxSnakePlayingDelay = maxFastSnakePlayingDelay;
+		} else {
+			maxSnakePlayingDelay = maxSlowSnakePlayingDelay;
+		}
+
 		//don't try to catch up if long time passed
 		if (actualMillis > (lastMillis + (maxSnakePlayingDelay * 2))) lastMillis = actualMillis + (maxSnakePlayingDelay / 2);
 
