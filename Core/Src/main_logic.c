@@ -158,13 +158,17 @@ void LogicLoop(void) {
 				pickedEmoteRed = rainbowColor.bits.r;
 				pickedEmoteGreen = rainbowColor.bits.g;
 				pickedEmoteBlue = rainbowColor.bits.b;
-				AssignRealEmoteColor();
 			}
 
 			if (isEmblemRainbowMode) {
 				pickedEmblemRed = rainbowColor.bits.r;
 				pickedEmblemGreen = rainbowColor.bits.g;
 				pickedEmblemBlue = rainbowColor.bits.b;
+			}
+
+			if ((isEmoteRainbowMode && !isInGame && isEmblemRainbowMode) || (isEmoteRainbowMode && !isInGame)) {
+				AssignRealEmoteColor();
+			} else {
 				AssignRealEmblemColor();
 			}
 
