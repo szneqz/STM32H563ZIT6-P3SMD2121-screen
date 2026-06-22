@@ -438,9 +438,13 @@ static void RotateTetrisFigure(int8_t dir)  //1 - clockwise  -1 - counter clockw
 
 static void MoveTetrisLeftRight(int8_t dir, uint32_t actualMillis) {
 	static uint32_t lastMillis = 0;
+	static int8_t lastDirection = 0;
 
 	//don't try to catch up if long time passed
-	if (actualMillis > (lastMillis + maxMoveTetrisLeftRightDelay + 1)) lastMillis = actualMillis + 1;
+	if (actualMillis > (lastMillis + maxMoveTetrisLeftRightDelay + 1) || lastDirection != dir) {
+		lastMillis = actualMillis - 1;
+		lastDirection = dir;
+	}
 
 	while (actualMillis > lastMillis) {
 		lastMillis += maxMoveTetrisLeftRightDelay;
