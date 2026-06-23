@@ -415,6 +415,63 @@ void HUB75_ChangeDrawFrameColor(ColorBitfield color) {
 	}
 }
 
+void HUB75_DrawLine(int x0, int y0, int x1, int y1, ColorBitfield color) {
+	int dy = y1 - y0; // Difference between y0 and y1
+	int dx = x1 - x0; // Difference between x0 and x1
+	int stepx, stepy;
+
+	if (dy < 0)
+	{
+		dy = -dy;
+		stepy = -1;
+	}
+	else
+		stepy = 1;
+
+	if (dx < 0)
+	{
+		dx = -dx;
+		stepx = -1;
+	}
+	else
+		stepx = 1;
+
+	dy <<= 1; // dy is now 2*dy
+	dx <<= 1; // dx is now 2*dx
+	HUB75_SetPixelColor(x0, y0, color); // Draw the first pixel.
+
+	if (dx > dy)
+	{
+		int fraction = dy - (dx >> 1);
+		while (x0 != x1)
+		{
+			if (fraction >= 0)
+			{
+				y0 += stepy;
+				fraction -= dx;
+			}
+			x0 += stepx;
+			fraction += dy;
+			HUB75_SetPixelColor(x0, y0, color);
+		}
+	}
+	else
+	{
+		int fraction = dx - (dy >> 1);
+		while (y0 != y1)
+		{
+			if (fraction >= 0)
+			{
+				x0 += stepx;
+				fraction -= dy;
+			}
+			y0 += stepy;
+			fraction += dx;
+			HUB75_SetPixelColor(x0, y0, color);
+		}
+	}
+}
+
 void HUB75_FillColor(uint8_t r, uint8_t g, uint8_t b)
 {
     for (uint16_t row = 0; row < HUB75_PANEL_HEIGHT; row++)

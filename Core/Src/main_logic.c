@@ -8,6 +8,7 @@
 #include "screen_images.h"
 #include "snake.h"
 #include "tetris.h"
+#include "asteroids.h"
 
 #define NO_COLOR 7
 #define RAINBOW 8
@@ -68,7 +69,7 @@ uint8_t pickedEmoteBlue = 0b11111;
 
 // Games submenu
 enum GAMES_SUB_MENU {
-	SNAKE, TETRIS, GAMES_MENU_SELECTIONS_COUNT
+	SNAKE, TETRIS, ASTEROIDS, GAMES_MENU_SELECTIONS_COUNT
 };
 uint8_t gamesSubMenuSelected = SNAKE;
 bool isInGame = false;
@@ -383,6 +384,7 @@ static void DrawGamesMenu(void) {
 	NOKIA_Clear();
 	NOKIA_SetStr(" Snake        ", 0, 0, gamesSubMenuSelected != SNAKE, false, false);
 	NOKIA_SetStr(" Tetris       ", 0, 8, gamesSubMenuSelected != TETRIS, false, false);
+	NOKIA_SetStr(" Asteroids    ", 0, 16, gamesSubMenuSelected != ASTEROIDS, false, false);
 	NOKIA_StopDataPrepare();
 	NOKIA_SendData();
 	isNokiaUpdated = true;
@@ -413,6 +415,10 @@ static void LogicGamesMenu(void) {
 				gameStarted = TETRIS;
 				TETRIS_Init();
 			}
+			else if (gamesSubMenuSelected == ASTEROIDS) {
+				gameStarted = ASTEROIDS;
+				ASTEROIDS_Init();
+			}
 
 			DrawEmblem();
 
@@ -432,6 +438,7 @@ static void LogicGamesMenu(void) {
 	if (isInGame) {
 		if (gameStarted == SNAKE) SNAKE_Logic();
 		if (gameStarted == TETRIS) TETRIS_Logic();
+		if (gameStarted == ASTEROIDS) ASTEROIDS_Logic();
 	}
 }
 

@@ -32,3 +32,9 @@ ColorBitfield HSVtoRGB(float h, float s, float v) {
 
 	return result;
 }
+
+struct Vertex CalculatePoint(float cx, float cy, float angle, float distance, float localAngle) {
+	float x = cx + distance * cosf(angle + localAngle);
+	float y = cy + distance * sinf(angle + localAngle);
+	return (struct Vertex){x, y};
+}
