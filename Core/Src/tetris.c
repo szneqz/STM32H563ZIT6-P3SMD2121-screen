@@ -141,6 +141,8 @@ void TETRIS_Init(void) {
 	HUB75_SetStr("000000", TETRIS_SCORE_X1, TETRIS_SCORE_Y, scoreColor, false, false);
 	NOKIA_SetStr("000000", TETRIS_NOKIA_SCORE_X, TETRIS_NOKIA_SCORE_Y, true, false, false);
 
+	DrawEmblem();
+
 	NOKIA_StopDataPrepare();
 	NOKIA_SendData();
 }

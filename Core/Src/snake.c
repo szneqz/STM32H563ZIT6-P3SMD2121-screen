@@ -6,6 +6,7 @@
  */
 
 #include "snake.h"
+#include "main_logic.h"
 
 #define SNAKE_WIDTH 24
 #define SNAKE_HEIGHT 15
@@ -80,6 +81,8 @@ void SNAKE_Init(void) {
 		ColorBitfield tmpColor = HSVtoRGB((float)i / tailLen, 1, 1);
 		SNAKE_DrawPixel(snakePos[i][0], snakePos[i][1], tmpColor, true);
 	}
+
+	DrawEmblem();
 
 	NOKIA_StopDataPrepare();
 	NOKIA_SendData();
