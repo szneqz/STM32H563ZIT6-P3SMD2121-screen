@@ -38,6 +38,7 @@
 
 #include "hub75_ospi.h"
 #include <string.h>
+#include "helper.h"
 
 /* ── Private state ──────────────────────────────────────────────────────── */
 
@@ -397,6 +398,24 @@ void HUB75_SetPixelColor(uint16_t x, uint16_t y,
     HUB75_s_framebuf[HUB75_current_draw_frame][y][x] = color;
 }
 
+void HUB75_SetPixelColorAlpha(int x, int y,
+    ColorBitfield color, float alpha)
+{
+    if(alpha <= 0.0f)
+        return;
+
+    if(alpha > 1.0f)
+        alpha = 1.0f;
+
+    ColorBitfield c;
+
+    c.bits.r = (uint8_t)(color.bits.r * alpha);
+    c.bits.g = (uint8_t)(color.bits.g * alpha);
+    c.bits.b = (uint8_t)(color.bits.b * alpha);
+
+    HUB75_SetPixelColor(x, y, c);
+}
+
 void HUB75_ChangeDrawFrameColor(ColorBitfield color) {
 	for (int y = 0; y < HUB75_PANEL_HEIGHT; y++) {
 		for (int x = 0; x < HUB75_PANEL_WIDTH; x++) {
@@ -468,6 +487,67 @@ void HUB75_DrawLine(int x0, int y0, int x1, int y1, ColorBitfield color) {
 			y0 += stepy;
 			fraction += dx;
 			HUB75_SetPixelColor(x0, y0, color);
+		}
+	}
+}
+
+void HUB75_DrawLineAA(float x0, float y0, float x1, float y1, ColorBitfield color)
+{
+    int steep = fabsf(y1 - y0) > fabsf(x1 - x0);
+
+    if (steep)
+    {
+        float t;
+
+        t = x0; x0 = y0; y0 = t;
+        t = x1; x1 = y1; y1 = t;
+    }
+
+    if (x0 > x1)
+    {
+        float t;
+
+        t = x0; x0 = x1; x1 = t;
+        t = y0; y0 = y1; y1 = t;
+    }
+
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float gradient = (dx == 0.0f) ? 0.0f : dy / dx;
+
+    float y = y0;
+
+    for (int x = (int)floorf(x0); x <= (int)floorf(x1); x++)
+    {
+        int iy = (int)floorf(y);
+
+        float upper = rfpart(y);
+        float lower = fpart(y);
+
+        if (steep)
+        {
+            HUB75_SetPixelColorAlpha(iy,     x, color, upper);
+            HUB75_SetPixelColorAlpha(iy + 1, x, color, lower * lower);
+        }
+        else
+        {
+            HUB75_SetPixelColorAlpha(x, iy,     color, upper);
+            HUB75_SetPixelColorAlpha(x, iy + 1, color, lower * lower);
+        }
+
+        y += gradient;
+    }
+}
+
+void HUB75_DrawRect(int x0, int y0, int x1, int y1, ColorBitfield color) {
+	if (x0 < 0) x0 = 0;
+	if (x1 > HUB75_PANEL_WIDTH) x1 = HUB75_PANEL_WIDTH;
+	if (y0 < 0) y0 = 0;
+	if (y1 > HUB75_PANEL_HEIGHT) y1 = HUB75_PANEL_HEIGHT;
+
+	for (int x = x0; x <= x1; x++) {
+		for (int y = y0; y <= y1; y++) {
+			HUB75_SetPixelColor(x, y, color);
 		}
 	}
 }

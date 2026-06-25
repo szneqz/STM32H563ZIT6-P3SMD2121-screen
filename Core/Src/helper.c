@@ -15,8 +15,7 @@ float Mix(float a, float b, float t) {
 	return a + (b - a) * t;
 }
 
-float Clampf(float value, float min, float max)
-{
+float Clampf(float value, float min, float max) {
     if (value < min)
         return min;
     if (value > max)
@@ -37,4 +36,16 @@ struct Vertex CalculatePoint(float cx, float cy, float angle, float distance, fl
 	float x = cx + distance * cosf(angle + localAngle);
 	float y = cy + distance * sinf(angle + localAngle);
 	return (struct Vertex){x, y};
+}
+
+float fpart(float x) {
+    return x - floorf(x);
+}
+
+float rfpart(float x) {
+    return 1.0f - fpart(x);
+}
+
+float vectorMagnitude(struct Vertex vector) {
+	return sqrtf(vector.x * vector.x + vector.y * vector.y);
 }
