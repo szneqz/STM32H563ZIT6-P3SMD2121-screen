@@ -122,6 +122,7 @@ void HUB75_SetPixelColorAlpha(int x, int y,
 void HUB75_ChangeDrawFrameColor(ColorBitfield color);
 void HUB75_DrawLine(int x0, int y0, int x1, int y1, ColorBitfield color);
 void HUB75_DrawLineAA(float x0, float y0, float x1, float y1, ColorBitfield color);
+void HUB75_DrawLineAAInBorders(float x0, float y0, float x1, float y1, int bx0, int by0, int bx1, int by1, ColorBitfield color, bool copyPixels);
 void HUB75_DrawRect(int x0, int y0, int x1, int y1, ColorBitfield color);
 
 /**

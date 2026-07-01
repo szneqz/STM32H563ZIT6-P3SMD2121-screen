@@ -539,6 +539,163 @@ void HUB75_DrawLineAA(float x0, float y0, float x1, float y1, ColorBitfield colo
     }
 }
 
+void HUB75_DrawLineAAInBorders(float x0, float y0, float x1, float y1, int bx0, int by0, int bx1, int by1, ColorBitfield color, bool copyPixels) {
+    int steep = fabsf(y1 - y0) > fabsf(x1 - x0);
+
+    if (steep)
+    {
+        float t;
+
+        t = x0; x0 = y0; y0 = t;
+        t = x1; x1 = y1; y1 = t;
+    }
+
+    if (x0 > x1)
+    {
+        float t;
+
+        t = x0; x0 = x1; x1 = t;
+        t = y0; y0 = y1; y1 = t;
+    }
+
+    float dx = x1 - x0;
+    float dy = y1 - y0;
+    float gradient = (dx == 0.0f) ? 0.0f : dy / dx;
+
+    float y = y0;
+
+    for (int x = (int)floorf(x0); x <= (int)floorf(x1); x++)
+    {
+    	int ix = x;
+        int iy = (int)floorf(y);
+
+        float upper = rfpart(y);
+        float lower = fpart(y);
+
+        if (steep)
+        {
+        	if (ix >= by0 && ix <= by1) {
+				if (iy >= bx0 && iy <= bx1) {
+					HUB75_SetPixelColorAlpha(iy,     ix, color, upper);
+				} else if (copyPixels) {
+					while (iy < bx0) {
+						iy += (bx1 - bx0);
+					}
+					while (iy > bx1) {
+						iy -= (bx1 - bx0);
+					}
+					HUB75_SetPixelColorAlpha(iy,     ix, color, upper);
+				}
+				if ((iy + 1) >= bx0 && (iy + 1) <= bx1) {
+					HUB75_SetPixelColorAlpha(iy + 1, ix, color, lower * lower);
+				} else if (copyPixels) {
+					while ((iy + 1) < bx0) {
+						iy += (bx1 - bx0);
+					}
+					while ((iy + 1) > bx1) {
+						iy -= (bx1 - bx0);
+					}
+					HUB75_SetPixelColorAlpha(iy + 1, ix, color, lower * lower);
+				}
+        	} else if (copyPixels) {
+				while (ix < by0) {
+					ix += (by1 - by0);
+				}
+				while (ix > by1) {
+					ix -= (by1 - by0);
+				}
+
+				if (iy >= bx0 && iy <= bx1) {
+					HUB75_SetPixelColorAlpha(iy,     ix, color, upper);
+				} else if (copyPixels) {
+					while (iy < bx0) {
+						iy += (bx1 - bx0);
+					}
+					while (iy > bx1) {
+						iy -= (bx1 - bx0);
+					}
+					HUB75_SetPixelColorAlpha(iy,     ix, color, upper);
+				}
+				if ((iy + 1) >= bx0 && (iy + 1) <= bx1) {
+					HUB75_SetPixelColorAlpha(iy + 1, ix, color, lower * lower);
+				} else if (copyPixels) {
+					while ((iy + 1) < bx0) {
+						iy += (bx1 - bx0);
+					}
+					while ((iy + 1) > bx1) {
+						iy -= (bx1 - bx0);
+					}
+					HUB75_SetPixelColorAlpha(iy + 1, ix, color, lower * lower);
+				}
+        	}
+        }
+        else
+        {
+        	if (ix >= bx0 && ix <= bx1) {
+				if (iy >= by0 && iy <= by1) {
+					HUB75_SetPixelColorAlpha(x, iy, color, upper);
+				} else if (copyPixels) {
+					int counter = 0;
+					while (iy < by0) {
+						iy += (by1 - by0);
+						counter++;
+						if (counter > 3 && counter < 5) {
+							counter = 5;
+						}
+					}
+					while (iy > by1) {
+						iy -= (by1 - by0);
+					}
+					HUB75_SetPixelColorAlpha(ix, iy, color, upper);
+				}
+				if ((iy + 1) >= by0 && (iy + 1) <= by1) {
+					HUB75_SetPixelColorAlpha(ix, iy + 1, color, lower * lower);
+				} else if (copyPixels) {
+					while ((iy + 1) < by0) {
+						iy += (by1 - by0);
+					}
+					while ((iy + 1) > by1) {
+						iy -= (by1 - by0);
+					}
+					HUB75_SetPixelColorAlpha(ix, iy + 1, color, lower * lower);
+				}
+        	} else if (copyPixels) {
+				while (ix < bx0) {
+					ix += (bx1 - bx0);
+				}
+				while (ix > bx1) {
+					ix -= (bx1 - bx0);
+				}
+
+				if (iy >= by0 && iy <= by1) {
+					HUB75_SetPixelColorAlpha(ix, iy, color, upper);
+				} else if (copyPixels) {
+					while (iy < by0) {
+						iy += (by1 - by0);
+					}
+					while (iy > by1) {
+						iy -= (by1 - by0);
+					}
+					HUB75_SetPixelColorAlpha(ix, iy, color, upper);
+				}
+				if ((iy + 1) >= by0 && (iy + 1) <= by1) {
+					HUB75_SetPixelColorAlpha(ix, iy + 1, color, lower * lower);
+				} else if (copyPixels) {
+					while ((iy + 1) < by0) {
+						iy += (by1 - by0);
+					}
+					while ((iy + 1) > by1) {
+						iy -= (by1 - by0);
+					}
+					HUB75_SetPixelColorAlpha(ix, iy + 1, color, lower * lower);
+				}
+        	}
+        }
+
+        y += gradient;
+    }
+}
+
 void HUB75_DrawRect(int x0, int y0, int x1, int y1, ColorBitfield color) {
 	if (x0 < 0) x0 = 0;
 	if (x1 > HUB75_PANEL_WIDTH) x1 = HUB75_PANEL_WIDTH;
