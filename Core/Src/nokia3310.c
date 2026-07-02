@@ -224,6 +224,169 @@ void NOKIA_SetLine(int x0, int y0, int x1, int y1, bool bw) {
 	}
 }
 
+void NOKIA_SetLineInBorders(int x0, int y0, int x1, int y1, int bx0, int by0, int bx1, int by1, bool bw, bool copyPixels) {
+	int dy = y1 - y0; // Difference between y0 and y1
+	int dx = x1 - x0; // Difference between x0 and x1
+	int stepx, stepy;
+
+	if (dy < 0)
+	{
+		dy = -dy;
+		stepy = -1;
+	}
+	else
+		stepy = 1;
+
+	if (dx < 0)
+	{
+		dx = -dx;
+		stepx = -1;
+	}
+	else
+		stepx = 1;
+
+	dy <<= 1; // dy is now 2*dy
+	dx <<= 1; // dx is now 2*dx
+
+	// Draw the first pixel.
+	if (x0 >= bx0 && x0 <= bx1) {
+		if (y0 >= by0 && y0 <= by1) {
+			NOKIA_SetPixel(x0, y0, bw);
+		}	else if (copyPixels) {
+			int ty0 = y0;
+			while (ty0 < by0) {
+				ty0 += (by1 - by0);
+			}
+			while (ty0 > by1) {
+				ty0 -= (by1 - by0);
+			}
+			NOKIA_SetPixel(x0, ty0, bw);
+		}
+	} else if (copyPixels) {
+		int tx0 = x0;
+		while (tx0 < bx0) {
+			tx0 += (bx1 - bx0);
+		}
+		while (tx0 > by1) {
+			tx0 -= (bx1 - bx0);
+		}
+
+		if (y0 >= by0 && y0 <= by1) {
+			NOKIA_SetPixel(tx0, y0, bw);
+		} else if (copyPixels) {
+			int ty0 = y0;
+			while (ty0 < by0) {
+				ty0 += (by1 - by0);
+			}
+			while (ty0 > by1) {
+				ty0 -= (by1 - by0);
+			}
+			NOKIA_SetPixel(tx0, ty0, bw);
+		}
+	}
+
+	if (dx > dy)
+	{
+		int fraction = dy - (dx >> 1);
+		while (x0 != x1)
+		{
+			if (fraction >= 0)
+			{
+				y0 += stepy;
+				fraction -= dx;
+			}
+			x0 += stepx;
+			fraction += dy;
+
+			if (x0 >= bx0 && x0 <= bx1) {
+				if (y0 >= by0 && y0 <= by1) {
+					NOKIA_SetPixel(x0, y0, bw);
+				} else if (copyPixels) {
+					int ty0 = y0;
+					while (ty0 < by0) {
+						ty0 += (by1 - by0);
+					}
+					while (ty0 > by1) {
+						ty0 -= (by1 - by0);
+					}
+					NOKIA_SetPixel(x0, ty0, bw);
+				}
+			} else if (copyPixels) {
+				int tx0 = x0;
+				while (tx0 < bx0) {
+					tx0 += (bx1 - bx0);
+				}
+				while (tx0 > by1) {
+					tx0 -= (bx1 - bx0);
+				}
+
+				if (y0 >= by0 && y0 <= by1) {
+					NOKIA_SetPixel(tx0, y0, bw);
+				} else if (copyPixels) {
+					int ty0 = y0;
+					while (ty0 < by0) {
+						ty0 += (by1 - by0);
+					}
+					while (ty0 > by1) {
+						ty0 -= (by1 - by0);
+					}
+					NOKIA_SetPixel(tx0, ty0, bw);
+				}
+			}
+		}
+	}
+	else
+	{
+		int fraction = dx - (dy >> 1);
+		while (y0 != y1)
+		{
+			if (fraction >= 0)
+			{
+				x0 += stepx;
+				fraction -= dy;
+			}
+			y0 += stepy;
+			fraction += dx;
+
+			if (x0 >= bx0 && x0 <= bx1) {
+				if (y0 >= by0 && y0 <= by1) {
+					NOKIA_SetPixel(x0, y0, bw);
+				} else if (copyPixels) {
+					int ty0 = y0;
+					while (ty0 < by0) {
+						ty0 += (by1 - by0);
+					}
+					while (ty0 > by1) {
+						ty0 -= (by1 - by0);
+					}
+					NOKIA_SetPixel(x0, ty0, bw);
+				}
+			} else if (copyPixels) {
+				int tx0 = x0;
+				while (tx0 < bx0) {
+					tx0 += (bx1 - bx0);
+				}
+				while (tx0 > by1) {
+					tx0 -= (bx1 - bx0);
+				}
+
+				if (y0 >= by0 && y0 <= by1) {
+					NOKIA_SetPixel(tx0, y0, bw);
+				} else if (copyPixels) {
+					int ty0 = y0;
+					while (ty0 < by0) {
+						ty0 += (by1 - by0);
+					}
+					while (ty0 > by1) {
+						ty0 -= (by1 - by0);
+					}
+					NOKIA_SetPixel(tx0, ty0, bw);
+				}
+			}
+		}
+	}
+}
+
 void NOKIA_SetRect(int x0, int y0, int x1, int y1, bool fill, bool bw) {
 	// check if the rectangle is to be filled
 	if (fill == 1)

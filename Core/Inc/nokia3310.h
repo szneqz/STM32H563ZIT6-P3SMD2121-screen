@@ -35,6 +35,7 @@ void NOKIA_SendData(void);
 void NOKIA_CopyPreviousFrame(void);
 void NOKIA_SetPixel(uint8_t x, uint8_t y, bool bw);
 void NOKIA_SetLine(int x0, int y0, int x1, int y1, bool bw);
+void NOKIA_SetLineInBorders(int x0, int y0, int x1, int y1, int bx0, int by0, int bx1, int by1, bool bw, bool copyPixels);
 void NOKIA_SetRect(int x0, int y0, int x1, int y1, bool fill, bool bw);
 void NOKIA_SetCircle(int x0, int y0, int r, bool bw, int lineThickness);
 void NOKIA_SetChar(char character, int x, int y, bool bw, bool transparent);

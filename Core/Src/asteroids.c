@@ -17,6 +17,10 @@
 #define ASTEROIDS_X11 113
 #define ASTEROIDS_Y0 0
 #define ASTEROIDS_Y1 31
+#define ASTEROIDS_NOKIA_X0 1
+#define ASTEROIDS_NOKIA_X1 50
+#define ASTEROIDS_NOKIA_Y0 1
+#define ASTEROIDS_NOKIA_Y1 32
 
 #define ASTEROIDS_MAX_BULLETS 4
 
@@ -114,11 +118,18 @@ void ASTEROIDS_Logic(void) {
 		}
 
 		if (HUB75_StartDrawing()) {
+		NOKIA_StartDataPrepare();
+		NOKIA_ClearActive();
+
 		HUB75_ClearActive();
 
 		ASTEROIDS_DrawShip();
 		ASTEROIDS_DrawBullets();
 		ASTEROIDS_DrawBorder();
+		DrawEmblem();
+
+		NOKIA_StopDataPrepare();
+		NOKIA_SendData();
 		}
 	}
 }
@@ -157,6 +168,12 @@ static void ASTEROIDS_DrawBullets(void) {
 
 			HUB75_DrawLineAAInBorders(bullets[i].x, bullets[i].y, bullets[i].x, bullets[i].y, ASTEROIDS_X00, ASTEROIDS_Y0, ASTEROIDS_X01, ASTEROIDS_Y1, ASTEROIDS_bulletColor, false);
 			HUB75_DrawLineAAInBorders(bullets[i].x + ASTEROIDS_WIDTH, bullets[i].y, bullets[i].x + ASTEROIDS_WIDTH, bullets[i].y, ASTEROIDS_X10, ASTEROIDS_Y0, ASTEROIDS_X11, ASTEROIDS_Y1, ASTEROIDS_bulletColor, false);
+
+			NOKIA_SetPixel(bullets[i].x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, bullets[i].y + ASTEROIDS_NOKIA_Y0, true);
+			NOKIA_SetPixel(bullets[i].x + 1 + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, bullets[i].y + ASTEROIDS_NOKIA_Y0, true);
+			NOKIA_SetPixel(bullets[i].x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, bullets[i].y + 1 + ASTEROIDS_NOKIA_Y0, true);
+			NOKIA_SetPixel(bullets[i].x - 1 + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, bullets[i].y + ASTEROIDS_NOKIA_Y0, true);
+			NOKIA_SetPixel(bullets[i].x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, bullets[i].y - 1 + ASTEROIDS_NOKIA_Y0, true);
 		}
 	}
 }
@@ -183,6 +200,12 @@ static void ASTEROIDS_DrawShipLines(struct Vertex v0, struct Vertex v1, struct V
 	HUB75_DrawLineAAInBorders(v1.x + ASTEROIDS_WIDTH, v1.y, v2.x + ASTEROIDS_WIDTH, v2.y, ASTEROIDS_X10, ASTEROIDS_Y0, ASTEROIDS_X11, ASTEROIDS_Y1, ASTEROIDS_shipColor, true);
 	HUB75_DrawLineAAInBorders(v2.x + ASTEROIDS_WIDTH, v2.y, v3.x + ASTEROIDS_WIDTH, v3.y, ASTEROIDS_X10, ASTEROIDS_Y0, ASTEROIDS_X11, ASTEROIDS_Y1, ASTEROIDS_shipColor, true);
 	HUB75_DrawLineAAInBorders(v3.x + ASTEROIDS_WIDTH, v3.y, v0.x + ASTEROIDS_WIDTH, v0.y, ASTEROIDS_X10, ASTEROIDS_Y0, ASTEROIDS_X11, ASTEROIDS_Y1, ASTEROIDS_shipColor, true);
+
+	//Nokia screen
+	NOKIA_SetLineInBorders(v0.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v0.y + ASTEROIDS_NOKIA_Y0, v1.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v1.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, true);
+	NOKIA_SetLineInBorders(v1.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v1.y + ASTEROIDS_NOKIA_Y0, v2.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v2.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, true);
+	NOKIA_SetLineInBorders(v2.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v2.y + ASTEROIDS_NOKIA_Y0, v3.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v3.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, true);
+	NOKIA_SetLineInBorders(v3.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v3.y + ASTEROIDS_NOKIA_Y0, v0.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v0.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, true);
 }
 
 static void ASTEROIDS_DrawBorder(void) {
@@ -190,4 +213,6 @@ static void ASTEROIDS_DrawBorder(void) {
 
 	HUB75_DrawLine(ASTEROIDS_X00 - 1, 0, ASTEROIDS_X00 - 1, 32, white);
 	HUB75_DrawLine(ASTEROIDS_X11 + 1, 0, ASTEROIDS_X11 + 1, 32, white);
+
+	NOKIA_SetRect(ASTEROIDS_NOKIA_X0 - 1, ASTEROIDS_NOKIA_Y0 - 1, ASTEROIDS_NOKIA_X1 + 1, ASTEROIDS_NOKIA_Y1 + 1, false, true);
 }
