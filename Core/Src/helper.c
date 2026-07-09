@@ -38,6 +38,15 @@ struct Vertex CalculatePoint(float cx, float cy, float angle, float distance, fl
 	return (struct Vertex){x, y};
 }
 
+float CalculateAngle(struct Vertex v) {
+	float angle = atan2(v.y, v.x);
+
+	if (angle < 0)
+	    angle += 2.0 * M_PI;
+
+	return angle;
+}
+
 float fpart(float x) {
     return x - floorf(x);
 }

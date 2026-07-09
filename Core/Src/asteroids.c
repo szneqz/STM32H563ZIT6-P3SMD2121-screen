@@ -28,7 +28,11 @@ static void ASTEROIDS_Shoot(void);
 static void ASTEROIDS_DrawBullets(void);
 static void ASTEROIDS_DrawShip(void);
 static void ASTEROIDS_DrawShipLines(struct Vertex v0, struct Vertex v1, struct Vertex v2, struct Vertex v3);
+static void ASTEROIDS_AsteroidLogic(void);
+static void ASTEROIDS_DrawAsteroid(bool copyPixels);
 static void ASTEROIDS_DrawBorder(void);
+
+extern volatile uint32_t randomNumber;
 
 const ColorBitfield ASTEROIDS_shipColor = { .bits.r = 0, .bits.g = 31, .bits.b = 15 };
 const uint32_t ASTEROIDS_maxPlayingDelay = 30;
@@ -49,6 +53,21 @@ const float tipPointDistance = 4.0f;
 const float maxBulletSpeed = 2.0f;
 const uint32_t maxShootDelay = 200;
 
+const ColorBitfield ASTEROIDS_asteroidColor = { .bits.r = 20, .bits.g = 0, .bits.b = 31 };
+const uint8_t asteroidPointsNr = 10;
+const float asteroidPointRotations[10] = {0.0f, 0.6283f, 1.2566f, 1.8849f, 2.5132f, 3.1416f, 3.7698f, 4.3981f, 5.0264f, 5.6547f};
+const float asteroidPointDistances[10] = {4.0f, 3.5f, 4.0f, 4.0f, 4.0f, 3.0f, 4.0f, 4.0f, 3.8f, 4.0f};
+const float asteroidMinSpeed = 0.2f;
+const float asteroidMaxSpeed = 0.35f;
+const float asteroidMinRotationSpeed = 0.01f;
+const float asteroidMaxRotationSpeed = 0.1f;
+struct Vertex asteroidPosition = {-1, -1};
+float asteroidRotation = 0.0f;
+float asteroidRotationSpeed = 0.0f;
+float asteroidMoveRotation = 0.0f;
+float asteroidMoveSpeed = 0.0f;
+
+
 void ASTEROIDS_Init(void) {
 	NOKIA_StartDataPrepare();
 	NOKIA_Clear();
@@ -59,6 +78,9 @@ void ASTEROIDS_Init(void) {
 
 	NOKIA_StopDataPrepare();
 	NOKIA_SendData();
+
+	asteroidPosition.x = -1;
+	asteroidPosition.y = -1;
 }
 
 void ASTEROIDS_Logic(void) {
@@ -117,12 +139,15 @@ void ASTEROIDS_Logic(void) {
 			ASTEROIDS_shipRotation += (M_PI * 2);
 		}
 
+		ASTEROIDS_AsteroidLogic();
+
 		if (HUB75_StartDrawing()) {
 		NOKIA_StartDataPrepare();
 		NOKIA_ClearActive();
 
 		HUB75_ClearActive();
 
+		ASTEROIDS_DrawAsteroid(true);
 		ASTEROIDS_DrawShip();
 		ASTEROIDS_DrawBullets();
 		ASTEROIDS_DrawBorder();
@@ -206,6 +231,71 @@ static void ASTEROIDS_DrawShipLines(struct Vertex v0, struct Vertex v1, struct V
 	NOKIA_SetLineInBorders(v1.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v1.y + ASTEROIDS_NOKIA_Y0, v2.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v2.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, true);
 	NOKIA_SetLineInBorders(v2.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v2.y + ASTEROIDS_NOKIA_Y0, v3.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v3.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, true);
 	NOKIA_SetLineInBorders(v3.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v3.y + ASTEROIDS_NOKIA_Y0, v0.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, v0.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, true);
+}
+
+static void ASTEROIDS_AsteroidLogic(void) {
+	if (asteroidPosition.x == -1 && asteroidPosition.y == -1) {
+		uint32_t wallNr = randomNumber % 4;
+
+		if (wallNr == 0 || wallNr == 2) {
+			asteroidPosition.x = randomNumber % (ASTEROIDS_WIDTH - 1) + 1;
+			if (wallNr == 0) asteroidPosition.y = 1;
+			else asteroidPosition.y = ASTEROIDS_HEIGHT - 1;
+		} else {
+			asteroidPosition.y = randomNumber % (ASTEROIDS_HEIGHT - 1) + 1;
+			if (wallNr == 1) asteroidPosition.x = 1;
+			else asteroidPosition.x = ASTEROIDS_WIDTH - 1;
+		}
+
+		struct Vertex towardsCenter = {-(ASTEROIDS_WIDTH / 2 - asteroidPosition.x), -(ASTEROIDS_HEIGHT / 2 -  asteroidPosition.y)};
+
+		asteroidMoveRotation = CalculateAngle(towardsCenter);
+
+		asteroidRotationSpeed = ((float)(randomNumber & 0xffff) / (float)UINT16_MAX) * (asteroidMaxRotationSpeed - asteroidMinRotationSpeed) + asteroidMinRotationSpeed;
+		asteroidMoveSpeed = ((float)(randomNumber >> 16) / (float)UINT16_MAX) * (asteroidMaxSpeed - asteroidMinSpeed) + asteroidMinSpeed;
+	} else {
+		struct Vertex forwardVector = CalculatePoint(0.0f, 0.0f, asteroidMoveRotation, asteroidMoveSpeed, 0.0f);
+
+		asteroidPosition.x += forwardVector.x;
+		asteroidPosition.y += forwardVector.y;
+
+		if (asteroidPosition.x > ASTEROIDS_WIDTH) asteroidPosition.x = 0;
+		if (asteroidPosition.x < 0) asteroidPosition.x = ASTEROIDS_WIDTH;
+		if (asteroidPosition.y > ASTEROIDS_HEIGHT) asteroidPosition.y = 0;
+		if (asteroidPosition.y < 0) asteroidPosition.y = ASTEROIDS_HEIGHT;
+
+		asteroidRotation += asteroidRotationSpeed;
+
+		while (asteroidRotation > (M_PI * 2)) {
+			asteroidRotation -= (M_PI * 2);
+		}
+		while (asteroidRotation < 0) {
+			asteroidRotation += (M_PI * 2);
+		}
+	}
+}
+
+static void ASTEROIDS_DrawAsteroid(bool copyPixels) {
+	if (asteroidPosition.x != -1 && asteroidPosition.y != -1) {
+		struct Vertex prevVertex = CalculatePoint(asteroidPosition.x + ASTEROIDS_X00, asteroidPosition.y, asteroidRotation, asteroidPointDistances[0], asteroidPointRotations[0]);
+
+		for (uint8_t i = 0; i < asteroidPointsNr; i++) {
+			uint8_t nexti = (i + 1) % asteroidPointsNr;
+
+			struct Vertex thisVertex = CalculatePoint(asteroidPosition.x + ASTEROIDS_X00, asteroidPosition.y, asteroidRotation, asteroidPointDistances[nexti], asteroidPointRotations[nexti]);
+
+			//first screen
+			HUB75_DrawLineAAInBorders(prevVertex.x, prevVertex.y, thisVertex.x, thisVertex.y, ASTEROIDS_X00, ASTEROIDS_Y0, ASTEROIDS_X01, ASTEROIDS_Y1, ASTEROIDS_asteroidColor, copyPixels);
+
+			//second screen
+			HUB75_DrawLineAAInBorders(prevVertex.x + ASTEROIDS_WIDTH, prevVertex.y, thisVertex.x + ASTEROIDS_WIDTH, thisVertex.y, ASTEROIDS_X10, ASTEROIDS_Y0, ASTEROIDS_X11, ASTEROIDS_Y1, ASTEROIDS_asteroidColor, copyPixels);
+
+			//Nokia screen
+			NOKIA_SetLineInBorders(prevVertex.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, prevVertex.y + ASTEROIDS_NOKIA_Y0, thisVertex.x + ASTEROIDS_NOKIA_X0 - ASTEROIDS_X00, thisVertex.y + ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X0, ASTEROIDS_NOKIA_Y0, ASTEROIDS_NOKIA_X1, ASTEROIDS_NOKIA_Y1, true, copyPixels);
+
+			prevVertex = thisVertex;
+		}
+	}
 }
 
 static void ASTEROIDS_DrawBorder(void) {

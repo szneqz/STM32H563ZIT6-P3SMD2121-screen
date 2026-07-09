@@ -20,6 +20,7 @@ float Mix(float a, float b, float t);
 float Clampf(float value, float min, float max);
 ColorBitfield HSVtoRGB(float h, float s, float v);
 struct Vertex CalculatePoint(float cx, float cy, float angle, float distance, float localAngle);
+float CalculateAngle(struct Vertex v);
 float fpart(float x);
 float rfpart(float x);
 float vectorMagnitude(struct Vertex vector);
