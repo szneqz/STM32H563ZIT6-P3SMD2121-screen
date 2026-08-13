@@ -8,10 +8,13 @@
 #ifndef INC_NES_H_
 #define INC_NES_H_
 
-// For PC only!
-//#include <stdio.h>
-//#include <stdlib.h>
-//#include <string.h>
+//#define PC_DEBUG
+
+#ifdef PC_DEBUG
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#endif
 
 #include <stdbool.h>
 #include <stdint.h>

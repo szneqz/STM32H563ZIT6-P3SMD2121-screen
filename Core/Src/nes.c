@@ -5,14 +5,18 @@
  *      Author: mishcat
  */
 
+#include <string.h>
+
 #include "nes.h"
 #include "nes_data.h"
+
+#ifndef PC_DEBUG
 #include "main_logic.h"
 #include "hub75_ospi.h"
-#include <string.h>
 
 extern uint8_t HUB75_current_draw_frame;
 extern ColorBitfield HUB75_s_framebuf[2][HUB75_PANEL_HEIGHT][HUB75_PANEL_WIDTH];
+#endif
 
 uint32_t CPU_Time;
 uint32_t PPU_Time;
@@ -25,7 +29,7 @@ uint32_t tempTime3;
 
 uint16_t DisplayBuffer[30][64]; // y x
 uint8_t NESBuffer[241][256][3]; // line dot rgb
-bool DrawNewFrame = true;
+bool DrawNewFrame = false;
 
 uint16_t ProgramCounter;
 uint8_t NES_A;
@@ -41,6 +45,8 @@ uint8_t SmallTemp;
 
 uint16_t addressBus;
 uint8_t opcode;
+
+uint8_t selectedROM = 2;
 
 typedef union {
     struct {
@@ -62,7 +68,10 @@ bool CPU_Halted = false;
 uint8_t Cycles = 0;
 
 uint8_t RAM[0x800];
-const uint8_t *CHRData = ROM+0x8000;
+const uint8_t *CHRData;
+const uint8_t *PRG0Data;
+const uint8_t *PRG1Data;
+const uint8_t *HeaderData;
 
 uint16_t ppuDot = 0;
 uint16_t ppuScanline = 0;
@@ -156,6 +165,14 @@ uint8_t PPUReadBuffer;
 
 bool NMILevelDetector;
 bool DoNMI;
+bool NMIHijack;
+
+uint32_t frameCounter;
+
+uint8_t Controller1Buttons = 0b00000000;
+uint8_t Controller2Buttons = 0b00000000;;
+uint8_t Controller1ShiftRegister;
+uint8_t Controller2ShiftRegister;
 
 void NES_DebugVRAM() {
     for (uint8_t row = 0; row < 30; row++) {
@@ -188,6 +205,7 @@ void NES_DebugVRAM() {
     }
 }
 
+#ifndef PC_DEBUG
 void NES_PrepareDisplay() {
     for (uint8_t j = 0; j < 30; j++) {
         for (uint8_t i = 0; i < 64; i++) {
@@ -210,88 +228,113 @@ void NES_PrepareDisplay() {
         }
     }
 }
+#else
 
-//// ---- Generic 24-bit BMP writer -------------------------------------------
-//// rgb: row-major, top-to-bottom, 3 bytes (R,G,B) per pixel.
-//static void WriteBMP(const char* filename, int width, int height, const uint8_t* rgb) {
-//    int rowSize  = (width * 3 + 3) & ~3;      // rows padded to 4-byte boundary
-//    int dataSize = rowSize * height;
-//    int fileSize = 54 + dataSize;
-//
-//    uint8_t header[54] = {0};
-//    header[0] = 'B'; header[1] = 'M';
-//    header[2] = (uint8_t)(fileSize);       header[3] = (uint8_t)(fileSize >> 8);
-//    header[4] = (uint8_t)(fileSize >> 16); header[5] = (uint8_t)(fileSize >> 24);
-//    header[10] = 54;                       // pixel data offset
-//    header[14] = 40;                       // BITMAPINFOHEADER size
-//    header[18] = (uint8_t)(width);         header[19] = (uint8_t)(width >> 8);
-//    header[20] = (uint8_t)(width >> 16);   header[21] = (uint8_t)(width >> 24);
-//    header[22] = (uint8_t)(height);        header[23] = (uint8_t)(height >> 8);
-//    header[24] = (uint8_t)(height >> 16);  header[25] = (uint8_t)(height >> 24);
-//    header[26] = 1;                        // planes
-//    header[28] = 24;                       // bits per pixel
-//    header[34] = (uint8_t)(dataSize);      header[35] = (uint8_t)(dataSize >> 8);
-//    header[36] = (uint8_t)(dataSize >> 16);header[37] = (uint8_t)(dataSize >> 24);
-//
-//    FILE* f = fopen(filename, "wb");
-//    if (!f) { perror("WriteBMP: fopen"); return; }
-//    fwrite(header, 1, 54, f);
-//
-//    uint8_t* row = malloc((size_t)rowSize);
-//    memset(row, 0, (size_t)rowSize);
-//
-//    for (int y = height - 1; y >= 0; y--) {          // BMP stores bottom-to-top
-//        for (int x = 0; x < width; x++) {
-//            const uint8_t* px = &rgb[((size_t)y * width + x) * 3];
-//            row[x*3 + 0] = px[2];                     // B
-//            row[x*3 + 1] = px[1];                     // G
-//            row[x*3 + 2] = px[0];                     // R
-//        }
-//        fwrite(row, 1, (size_t)rowSize, f);
-//    }
-//    free(row);
-//    fclose(f);
-//}
-//
-//// ---- Export NESBuffer (256x240, already RGB888) ---------------------------
-//void SaveNESBufferBMP(const char* filename) {
-//    WriteBMP(filename, 256, 240, (const uint8_t*)NESBuffer);
-//}
-//
-//// ---- Export DisplayBuffer (0b0bbbbbgggggrrrrr, 5 bits/channel) ------------
-//void SaveDisplayBufferBMP(const char* filename) {
-//    const int width  = 64;   // matches DisplayBuffer[30][64] -> x
-//    const int height = 30;   // matches DisplayBuffer[30][64] -> y
-//
-//    uint8_t* rgb = malloc((size_t)width * height * 3);
-//    for (int y = 0; y < height; y++) {
-//        for (int x = 0; x < width; x++) {
-//            uint16_t c = DisplayBuffer[y][x];
-//            uint8_t r5 = (uint8_t)(c & 0x1F);
-//            uint8_t g5 = (uint8_t)((c >> 5) & 0x1F);
-//            uint8_t b5 = (uint8_t)((c >> 10) & 0x1F);
-//
-//            // 5-bit -> 8-bit, spreading the low bits for a smoother scale
-//            uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
-//            uint8_t g = (uint8_t)((g5 << 3) | (g5 >> 2));
-//            uint8_t b = (uint8_t)((b5 << 3) | (b5 >> 2));
-//
-//            size_t idx = ((size_t)y * width + x) * 3;
-//            rgb[idx + 0] = r;
-//            rgb[idx + 1] = g;
-//            rgb[idx + 2] = b;
-//        }
-//    }
-//    WriteBMP(filename, width, height, rgb);
-//    free(rgb);
-//}
+void NES_PrepareDisplay() {
+    for (uint8_t j = 0; j < 30; j++) {
+        for (uint8_t i = 0; i < 64; i++) {
+            DisplayBuffer[j][i] = 0;
+            uint32_t tempRGB[3] = {0, 0, 0};
+            for (uint8_t q = 0; q < 8; q++) {
+                for (uint8_t p = 0; p < 4; p++) {
+                    tempRGB[0] += NESBuffer[(j*8)+q][(i*4)+p][0];
+                    tempRGB[1] += NESBuffer[(j*8)+q][(i*4)+p][1];
+                    tempRGB[2] += NESBuffer[(j*8)+q][(i*4)+p][2];
+                }
+            }
+            tempRGB[0] /= 4*8;
+            tempRGB[0] >>= 3;
+            tempRGB[1] /= 4*8;
+            tempRGB[1] >>= 3;
+            tempRGB[2] /= 4*8;
+            tempRGB[2] >>= 3;
+            DisplayBuffer[j][i] = (tempRGB[2] << 10) | (tempRGB[1] << 5) | (tempRGB[0] << 0);
+        }
+    }
+}
+
+// ---- Generic 24-bit BMP writer -------------------------------------------
+// rgb: row-major, top-to-bottom, 3 bytes (R,G,B) per pixel.
+static void WriteBMP(const char* filename, int width, int height, const uint8_t* rgb) {
+   int rowSize  = (width * 3 + 3) & ~3;      // rows padded to 4-byte boundary
+   int dataSize = rowSize * height;
+   int fileSize = 54 + dataSize;
+
+   uint8_t header[54] = {0};
+   header[0] = 'B'; header[1] = 'M';
+   header[2] = (uint8_t)(fileSize);       header[3] = (uint8_t)(fileSize >> 8);
+   header[4] = (uint8_t)(fileSize >> 16); header[5] = (uint8_t)(fileSize >> 24);
+   header[10] = 54;                       // pixel data offset
+   header[14] = 40;                       // BITMAPINFOHEADER size
+   header[18] = (uint8_t)(width);         header[19] = (uint8_t)(width >> 8);
+   header[20] = (uint8_t)(width >> 16);   header[21] = (uint8_t)(width >> 24);
+   header[22] = (uint8_t)(height);        header[23] = (uint8_t)(height >> 8);
+   header[24] = (uint8_t)(height >> 16);  header[25] = (uint8_t)(height >> 24);
+   header[26] = 1;                        // planes
+   header[28] = 24;                       // bits per pixel
+   header[34] = (uint8_t)(dataSize);      header[35] = (uint8_t)(dataSize >> 8);
+   header[36] = (uint8_t)(dataSize >> 16);header[37] = (uint8_t)(dataSize >> 24);
+
+   FILE* f = fopen(filename, "wb");
+   if (!f) { perror("WriteBMP: fopen"); return; }
+   fwrite(header, 1, 54, f);
+
+   uint8_t* row = malloc((size_t)rowSize);
+   memset(row, 0, (size_t)rowSize);
+
+   for (int y = height - 1; y >= 0; y--) {          // BMP stores bottom-to-top
+       for (int x = 0; x < width; x++) {
+           const uint8_t* px = &rgb[((size_t)y * width + x) * 3];
+           row[x*3 + 0] = px[2];                     // B
+           row[x*3 + 1] = px[1];                     // G
+           row[x*3 + 2] = px[0];                     // R
+       }
+       fwrite(row, 1, (size_t)rowSize, f);
+   }
+   free(row);
+   fclose(f);
+}
+
+// ---- Export NESBuffer (256x240, already RGB888) ---------------------------
+void SaveNESBufferBMP(const char* filename) {
+   WriteBMP(filename, 256, 240, (const uint8_t*)NESBuffer);
+}
+
+// ---- Export DisplayBuffer (0b0bbbbbgggggrrrrr, 5 bits/channel) ------------
+void SaveDisplayBufferBMP(const char* filename) {
+   const int width  = 64;   // matches DisplayBuffer[30][64] -> x
+   const int height = 30;   // matches DisplayBuffer[30][64] -> y
+
+   uint8_t* rgb = malloc((size_t)width * height * 3);
+   for (int y = 0; y < height; y++) {
+       for (int x = 0; x < width; x++) {
+           uint16_t c = DisplayBuffer[y][x];
+           uint8_t r5 = (uint8_t)(c & 0x1F);
+           uint8_t g5 = (uint8_t)((c >> 5) & 0x1F);
+           uint8_t b5 = (uint8_t)((c >> 10) & 0x1F);
+
+           // 5-bit -> 8-bit, spreading the low bits for a smoother scale
+           uint8_t r = (uint8_t)((r5 << 3) | (r5 >> 2));
+           uint8_t g = (uint8_t)((g5 << 3) | (g5 >> 2));
+           uint8_t b = (uint8_t)((b5 << 3) | (b5 >> 2));
+
+           size_t idx = ((size_t)y * width + x) * 3;
+           rgb[idx + 0] = r;
+           rgb[idx + 1] = g;
+           rgb[idx + 2] = b;
+       }
+   }
+   WriteBMP(filename, width, height, rgb);
+   free(rgb);
+}
+#endif
 
 uint8_t ReadPPU(uint16_t Address) {
     if (Address < 0x2000) {
         return CHRData[Address];
     }
     else if (Address < 0x3F00) {
-        if ((HEADER[6] & 1) == 0) {
+        if ((HeaderData[6] & 1) == 0) {
             return VRAM[(Address & 0x3FF) | (Address & 0x800) >> 1];
         } else {
             return VRAM[Address & 0x7FF];
@@ -333,8 +376,24 @@ uint8_t Read(uint16_t Address) {
                 return 0;
         }
     }
+    else if (Address == 0x4016) {
+        uint8_t controllerBit = (uint8_t)(Controller1ShiftRegister & 0x01);
+        Controller1ShiftRegister >>= 1;
+        Controller1ShiftRegister |= 0x80;
+        return controllerBit;
+    }
+    else if (Address == 0x4017) {
+        uint8_t controllerBit = (uint8_t)(Controller2ShiftRegister & 0x01);
+        Controller2ShiftRegister >>= 1;
+        Controller2ShiftRegister |= 0x80;
+        return controllerBit;
+    }
+    else if (Address >= 0xC000) {
+        // printf("%x: %x\n", Address - 0xC000, PRG1Data[Address - 0xC000]);
+        return PRG1Data[Address - 0xC000];
+    }
     else if (Address >= 0x8000) {
-        return ROM[Address - 0x8000];
+        return PRG0Data[Address - 0x8000];
     }
     return 0;
 }
@@ -388,12 +447,12 @@ void Write(uint16_t Address, uint8_t Data) {
 
             case 0x07: // PPUDATA
                 if (VRAMAddress < 0x2000) { // Pattern Table
-                    // if (HEADER[5] == 0) {
+                    // if (HeaderData[5] == 0) {
                     //     CHRData[VRAMAddress] = Data;
                     // }
                 }
                 else if (VRAMAddress < 0x3F00) { // Nametables
-                    if ((HEADER[6] & 1) == 0) { // horizontal mirroring
+                    if ((HeaderData[6] & 1) == 0) { // horizontal mirroring
                         VRAM[(VRAMAddress & 0x3FF) | (VRAMAddress & 0x800) >> 1] = Data;
                     } else { // vertical mirroring
                         VRAM[VRAMAddress & 0x7FF] = Data;
@@ -412,10 +471,14 @@ void Write(uint16_t Address, uint8_t Data) {
                 break;
         }
     }
-    else if(Address == 0x4014) {
+    else if (Address == 0x4014) {
         for (uint16_t i = 0; i < 256; i++) {
             OAM[i] = Read((uint16_t)((Data << 8) + i));
         }
+    }
+    else if (Address == 0x4016) {
+        Controller1ShiftRegister = Controller1Buttons;
+        Controller2ShiftRegister = Controller2Buttons;
     }
     // else if (Address >= 0x6000 && Address < 0x8000) {
     //     printf("%c", Data);
@@ -618,7 +681,99 @@ void Op_LDY(uint8_t Input) {
     Flags.Negative = NES_Y > 127;
 }
 
+void Op_SLO(uint16_t Address, uint8_t Input) {
+    Flags.Carry = Input > 127;
+    Input <<= 1;
+    Write(Address, Input);
+    // Flags.Zero = Input == 0;
+    // Flags.Negative = Input > 127;
+    NES_A |= Input;
+    Flags.Negative = NES_A > 127;
+    Flags.Zero = NES_A == 0;
+}
+
+void Op_RLA(uint16_t Address, uint16_t Input) {
+    Input <<= 1;
+    Input |= Flags.Carry;
+    Flags.Carry = Input > 255;
+    Input &= 0xFF;
+    Write(Address, Input);
+    // Flags.Negative = Input > 127;
+    // Flags.Zero = Input == 0;
+    NES_A &= Input;
+    Flags.Negative = NES_A > 127;
+    Flags.Zero = NES_A == 0;
+}
+
+void Op_SRE(uint16_t Address, uint8_t Input) {
+    Flags.Carry = (Input & 0x01);
+    Input >>= 1;
+    Write(Address, Input);
+    // Flags.Zero = Input == 0;
+    // Flags.Negative = Input > 127;
+    NES_A ^= Input;
+    Flags.Negative = NES_A > 127;
+    Flags.Zero = NES_A == 0;
+}
+
+void Op_RRA(uint16_t Address, uint16_t Input) {
+    Input |= (Flags.Carry << 8);
+    Flags.Carry = (Input & 0x01);
+    Input >>= 1;
+    Write(Address, Input);
+    // Flags.Negative = Input > 127;
+    // Flags.Zero = Input == 0;
+    Temp = NES_A + Input + Flags.Carry;
+    Flags.Carry = Temp > 255;
+    Flags.Overflow = (~(NES_A ^ Input) & (NES_A ^ Temp) & 0x80) > 0;
+    NES_A = Temp;
+    Flags.Negative = NES_A > 127;
+    Flags.Zero = NES_A == 0;
+}
+
+void Op_SAX(uint16_t Address) {
+    Write(Address, NES_A & NES_X);
+}
+
+void Op_LAX(uint8_t Input) {
+    NES_A = Input;
+    NES_X = Input;
+    Flags.Zero = NES_X == 0;
+    Flags.Negative = NES_X > 127;
+}
+
+void Op_DCP(uint16_t Address, uint8_t Input) {
+    Input--;
+    Write(Address, Input);
+    // Flags.Negative = Input > 127;
+    // Flags.Zero = Input == 0;
+    uint8_t Result = (uint8_t)(NES_A - Input);
+    Flags.Carry = NES_A >= Input;
+    Flags.Negative = Result > 127;
+    Flags.Zero = NES_A == Input;
+}
+
+void Op_ISC(uint16_t Address, uint8_t Input) {
+    Input++;
+    Write(Address, Input);
+    // Flags.Negative = Input > 127;
+    // Flags.Zero = Input == 0;
+    Op_ADC(~Input);
+}
+
+void Op_LAS(uint8_t Input) {
+    NES_A = StackPointer & Input;
+    NES_X = NES_A;
+    StackPointer = NES_A;
+    Flags.Zero = NES_A == 0;
+    Flags.Negative = NES_A > 127;
+}
+
 void NES_Reset() {
+    HeaderData = HEADERLIST[selectedROM];
+    PRG0Data = ROMLIST[selectedROM]+0x0000;
+    PRG1Data = ROMLIST[selectedROM]+0x4000;
+    CHRData = ROMLIST[selectedROM]+0x8000;
     Flags.Carry = false;
     Flags.Zero = false;
     Flags.InterruptDisable = true;
@@ -632,6 +787,7 @@ void NES_Reset() {
     Temp_High = Read(0xFFFD);
     ProgramCounter = (uint16_t)((Temp_High * 0x100) + Temp_Low);
     StackPointer = 0xFD;
+    // printf("%x\n", ProgramCounter);
 }
 
 void Emulate_CPU() {
@@ -639,11 +795,17 @@ void Emulate_CPU() {
     NMILevelDetector = PPUCTRL.NMI && PPUSTATUS.VBlank;
     if (!PreviousNMILevelDetector && NMILevelDetector) DoNMI = true;
 
+    NMIHijack = false;
+
     if (DoNMI) {
         opcode = 0x00;
+        if (Read(ProgramCounter) == 0x00) {
+            NMIHijack = true;
+            ProgramCounter++;
+        }
     } else {
         opcode = Read(ProgramCounter);
-        // printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tdot: %d  \tline: %d\n", ProgramCounter, opcode, opnames[opcode], addressBus, A, X, Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, ppuDot, ppuScanline);
+        // printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tdot: %d  \tline: %d\n", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, ppuDot, ppuScanline);
         ProgramCounter++;
     }
 
@@ -656,13 +818,14 @@ void Emulate_CPU() {
 
 
     switch (opcode) {
-        case 0x00: // BRK and NMI
-            if (!DoNMI) {
+        case 0x00: // BRK, NMI, IRQ
+            bool IsRealBRK = !DoNMI || NMIHijack;
+            if (IsRealBRK) {
                 ProgramCounter++;
             }
             Push((uint8_t)(ProgramCounter >> 8));
             Push((uint8_t)(ProgramCounter));
-            Flags.Break = DoNMI ? false : true;
+            Flags.Break = IsRealBRK;
             Push(Flags.Raw | 0b00100000);
             Flags.InterruptDisable = true;
             Temp_Low = Read((uint16_t)(DoNMI ? 0xFFFA : 0xFFFE));
@@ -680,6 +843,11 @@ void Emulate_CPU() {
             CPU_Halted = true;
             ProgramCounter--;
             break;
+        case 0x03: // SLO X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_SLO(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0x04: // NOP Zero Page
             Cycles = 3;
             ProgramCounter++;
@@ -692,6 +860,11 @@ void Emulate_CPU() {
         case 0x06: // ASL Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_ASL(addressBus, Read(addressBus));
+            Cycles = 5;
+            break;
+        case 0x07: // SLO Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_SLO(addressBus, Read(addressBus));
             Cycles = 5;
             break;
         case 0x08: // PHP
@@ -710,6 +883,12 @@ void Emulate_CPU() {
             Flags.Negative = NES_A > 127;
             Cycles = 2;
             break;
+        case 0x0B: // ANC Immediate
+            Op_AND(Read(ProgramCounter));
+            Flags.Carry = Flags.Negative;
+            ProgramCounter++;
+            Cycles = 2;
+            break;
         case 0x0C: // NOP Absolute
             Cycles = 4;
             ProgramCounter += 2;
@@ -722,6 +901,11 @@ void Emulate_CPU() {
         case 0x0E: // ASL Absolute
             ReadOperands_AbsoluteAddressed();
             Op_ASL(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
+        case 0x0F: // SLO Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_SLO(addressBus, Read(addressBus));
             Cycles = 6;
             break;
         case 0x10: // BPL
@@ -742,6 +926,11 @@ void Emulate_CPU() {
             Op_ORA(Read(addressBus));
             Cycles = 5; // TODO: +1 if page crossed
             break;
+        case 0x13: // SLO Y-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_YIndexed();
+            Op_SLO(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0x14: // NOP X-Indexed Zero Page
             Cycles = 4;
             ProgramCounter++;
@@ -756,6 +945,11 @@ void Emulate_CPU() {
             Op_ASL(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0x17: // SLO X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            Op_SLO(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0x18: // CLC
             Flags.Carry = false;
             Cycles = 2;
@@ -767,6 +961,11 @@ void Emulate_CPU() {
             break;
         case 0x1A: // NOP
             Cycles = 2;
+            break;
+        case 0x1B: // SLO Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_SLO(addressBus, Read(addressBus));
+            Cycles = 7;
             break;
         case 0x1C: // NOP X-Indexed Absolute
             Cycles = 4;
@@ -780,6 +979,11 @@ void Emulate_CPU() {
         case 0x1E: // ASL X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
             Op_ASL(addressBus, Read(addressBus));
+            Cycles = 7;
+            break;
+        case 0x1F: // SLO X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            Op_SLO(addressBus, Read(addressBus));
             Cycles = 7;
             break;
         case 0x20: // JSR
@@ -796,6 +1000,11 @@ void Emulate_CPU() {
             Op_AND(Read(addressBus));
             Cycles = 6;
             break;
+        case 0x23: // RLA X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_RLA(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0x24: // BIT Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_BIT(Read(addressBus));
@@ -809,6 +1018,11 @@ void Emulate_CPU() {
         case 0x26: // ROL Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_ROL(addressBus, Read(addressBus));
+            Cycles = 5;
+            break;
+        case 0x27: // RLA Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_RLA(addressBus, Read(addressBus));
             Cycles = 5;
             break;
         case 0x28: // PLP
@@ -831,6 +1045,12 @@ void Emulate_CPU() {
             Flags.Zero = Temp == 0;
             Cycles = 2;
             break;
+        case 0x2B: // ANC Immediate
+            Op_AND(Read(ProgramCounter));
+            Flags.Carry = Flags.Negative;
+            ProgramCounter++;
+            Cycles = 2;
+            break;
         case 0x2C: // BIT Absolute
             ReadOperands_AbsoluteAddressed();
             Op_BIT(Read(addressBus));
@@ -844,6 +1064,11 @@ void Emulate_CPU() {
         case 0x2E: // ROL Absolute
             ReadOperands_AbsoluteAddressed();
             Op_ROL(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
+        case 0x2F: // RLA Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_RLA(addressBus, Read(addressBus));
             Cycles = 6;
             break;
         case 0x30: // BMI
@@ -864,6 +1089,11 @@ void Emulate_CPU() {
             Op_AND(Read(addressBus));
             Cycles = 5; // TODO: +1 if page crossed
             break;
+        case 0x33: // RLA Y-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_YIndexed();
+            Op_RLA(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0x34: // NOP X-Indexed Zero Page
             Cycles = 4;
             ProgramCounter++;
@@ -878,6 +1108,11 @@ void Emulate_CPU() {
             Op_ROL(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0x37: // RLA X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            Op_RLA(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0x38: // SEC
             Flags.Carry = true;
             Cycles = 2;
@@ -889,6 +1124,11 @@ void Emulate_CPU() {
             break;
         case 0x3A: // NOP
             Cycles = 2;
+            break;
+        case 0x3B: // RLA Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_RLA(addressBus, Read(addressBus));
+            Cycles = 7;
             break;
         case 0x3C: // NOP X-Indexed Absolute
             Cycles = 4;
@@ -904,6 +1144,11 @@ void Emulate_CPU() {
             Op_ROL(addressBus, Read(addressBus));
             Cycles = 7;
             break;
+        case 0x3F: // RLA X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            Op_RLA(addressBus, Read(addressBus));
+            Cycles = 7;
+            break;
         case 0x40: // RTI
             Flags.Raw = Pull() & 0b11001111;
             Temp_Low = Pull();
@@ -915,6 +1160,11 @@ void Emulate_CPU() {
             ReadOperands_IndirectAddressed_XIndexed();
             Op_EOR(Read(addressBus));
             Cycles = 6;
+            break;
+        case 0x43: // SRE X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_SRE(addressBus, Read(addressBus));
+            Cycles = 8;
             break;
         case 0x44: // NOP Zero Page
             Cycles = 3;
@@ -928,6 +1178,11 @@ void Emulate_CPU() {
         case 0x46: // LSR Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_LSR(addressBus, Read(addressBus));
+            Cycles = 5;
+            break;
+        case 0x47: // SRE Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_SRE(addressBus, Read(addressBus));
             Cycles = 5;
             break;
         case 0x48: // PHA
@@ -946,6 +1201,15 @@ void Emulate_CPU() {
             Flags.Negative = NES_A > 127;
             Cycles = 2;
             break;
+        case 0x4B: // ASR Immediate
+            Op_AND(Read(ProgramCounter));
+            Flags.Carry = (NES_A & 0x01);
+            NES_A >>= 1;
+            Flags.Negative = false;
+            Flags.Zero = NES_A == 0;
+            ProgramCounter++;
+            Cycles = 2;
+            break;
         case 0x4C: // JMP
             Temp_Low = Read(ProgramCounter);
             ProgramCounter++;
@@ -961,6 +1225,11 @@ void Emulate_CPU() {
         case 0x4E: // LSR Absolute
             ReadOperands_AbsoluteAddressed();
             Op_LSR(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
+        case 0x4F: // SRE Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_SRE(addressBus, Read(addressBus));
             Cycles = 6;
             break;
         case 0x50: // BVC
@@ -981,6 +1250,11 @@ void Emulate_CPU() {
             Op_EOR(Read(addressBus));
             Cycles = 5; // TODO: +1 if page crossed
             break;
+        case 0x53: // SRE Y-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_YIndexed();
+            Op_SRE(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0x54: // NOP X-Indexed Zero Page
             Cycles = 4;
             ProgramCounter++;
@@ -995,6 +1269,11 @@ void Emulate_CPU() {
             Op_LSR(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0x57: // SRE X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            Op_SRE(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0x58: // CLI
             Flags.InterruptDisable = false;
             Cycles = 2;
@@ -1006,6 +1285,11 @@ void Emulate_CPU() {
             break;
         case 0x5A: // NOP
             Cycles = 2;
+            break;
+        case 0x5B: // SRE Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_SRE(addressBus, Read(addressBus));
+            Cycles = 7;
             break;
         case 0x5C: // NOP X-Indexed Absolute
             Cycles = 4;
@@ -1021,6 +1305,11 @@ void Emulate_CPU() {
             Op_LSR(addressBus, Read(addressBus));
             Cycles = 7;
             break;
+        case 0x5F: // SRE X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            Op_SRE(addressBus, Read(addressBus));
+            Cycles = 7;
+            break;
         case 0x60: // RTS
             Temp_Low = Pull();
             Temp_High = Pull();
@@ -1032,6 +1321,11 @@ void Emulate_CPU() {
             ReadOperands_IndirectAddressed_XIndexed();
             Op_ADC(Read(addressBus));
             Cycles = 6;
+            break;
+        case 0x63: // RRA X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_RRA(addressBus, Read(addressBus));
+            Cycles = 8;
             break;
         case 0x64: // NOP Zero Page
             Cycles = 3;
@@ -1045,6 +1339,11 @@ void Emulate_CPU() {
         case 0x66: // ROR Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_ROR(addressBus, Read(addressBus));
+            Cycles = 5;
+            break;
+        case 0x67: // RRA Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_RRA(addressBus, Read(addressBus));
             Cycles = 5;
             break;
         case 0x68: // PLA
@@ -1068,6 +1367,17 @@ void Emulate_CPU() {
             Flags.Zero = NES_A == 0;
             Cycles = 2;
             break;
+        case 0x6B: // ARR Immediate
+            Op_AND(Read(ProgramCounter));
+            NES_A >>= 1;
+            NES_A |= (Flags.Carry << 7);
+            Flags.Negative = NES_A > 127;
+            Flags.Zero = NES_A == 0;
+            Flags.Overflow = (NES_A & 0b01000000) != ((NES_A & 0b00100000) << 1);
+            Flags.Carry = (NES_A & 0b01000000) > 0;
+            ProgramCounter++;
+            Cycles = 2;
+            break;
         case 0x6C: // JMP Indirect
             Temp_Low = Read(ProgramCounter);
             ProgramCounter++;
@@ -1089,6 +1399,11 @@ void Emulate_CPU() {
             Op_ROR(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0x6F: // RRA Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_RRA(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0x70: // BVS
             SignedTemp = Read(ProgramCounter);
             ProgramCounter++;
@@ -1107,6 +1422,11 @@ void Emulate_CPU() {
             Op_ADC(Read(addressBus));
             Cycles = 5; // TODO: +1 if page crossed
             break;
+        case 0x73: // RRA Y-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_YIndexed();
+            Op_RRA(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0x74: // NOP X-Indexed Zero Page
             Cycles = 4;
             ProgramCounter++;
@@ -1121,6 +1441,11 @@ void Emulate_CPU() {
             Op_ROR(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0x77: // RRA X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            Op_RRA(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0x78: // SEI
             Flags.InterruptDisable = true;
             Cycles = 2;
@@ -1132,6 +1457,11 @@ void Emulate_CPU() {
             break;
         case 0x7A: // NOP
             Cycles = 2;
+            break;
+        case 0x7B: // RRA Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_RRA(addressBus, Read(addressBus));
+            Cycles = 7;
             break;
         case 0x7C: // NOP X-Indexed Absolute
             Cycles = 4;
@@ -1147,6 +1477,11 @@ void Emulate_CPU() {
             Op_ROR(addressBus, Read(addressBus));
             Cycles = 7;
             break;
+        case 0x7F: // RRA X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            Op_RRA(addressBus, Read(addressBus));
+            Cycles = 7;
+            break;
         case 0x80: // NOP Immediate
             Cycles = 2;
             ProgramCounter++;
@@ -1159,6 +1494,11 @@ void Emulate_CPU() {
         case 0x82: // NOP Immediate
             Cycles = 2;
             ProgramCounter++;
+            break;
+        case 0x83: // SAX X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_SAX(addressBus);
+            Cycles = 6;
             break;
         case 0x84: // STY Zero Page
             ReadOperands_ZeroPageAddressed();
@@ -1173,6 +1513,11 @@ void Emulate_CPU() {
         case 0x86: // STX Zero Page
             ReadOperands_ZeroPageAddressed();
             Write(addressBus, NES_X);
+            Cycles = 3;
+            break;
+        case 0x87: // SAX Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_SAX(addressBus);
             Cycles = 3;
             break;
         case 0x88: // DEY
@@ -1191,6 +1536,15 @@ void Emulate_CPU() {
             Flags.Negative = NES_A > 127;
             Cycles = 2;
             break;
+        case 0x8B: // XAA Immediate
+            SmallTemp = Read(ProgramCounter);
+            NES_A = (NES_A | 0xEE) & NES_X & SmallTemp;
+            Flags.Negative = NES_A > 127;
+            Flags.Zero = NES_A == 0;
+            // Op_AND(Read(ProgramCounter));
+            ProgramCounter++;
+            Cycles = 2;
+            break;
         case 0x8C: // STY Absolute
             ReadOperands_AbsoluteAddressed();
             Write(addressBus, NES_Y);
@@ -1204,6 +1558,11 @@ void Emulate_CPU() {
         case 0x8E: // STX Absolute
             ReadOperands_AbsoluteAddressed();
             Write(addressBus, NES_X);
+            Cycles = 4;
+            break;
+        case 0x8F: // SAX Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_SAX(addressBus);
             Cycles = 4;
             break;
         case 0x90: // BCC
@@ -1224,6 +1583,18 @@ void Emulate_CPU() {
             Write(addressBus, NES_A);
             Cycles = 6;
             break;
+        case 0x93: // SHA Y-Indexed Zero Page Indirect
+            addressBus = Read(ProgramCounter);
+            ProgramCounter++;
+            uint8_t TempAddress = (uint8_t)(addressBus);
+            addressBus = Read(TempAddress);
+            TempAddress++;
+            addressBus = (uint16_t)(Read(TempAddress) << 8 | addressBus);
+            SmallTemp = (uint8_t)(addressBus >> 8) + 1;
+            addressBus += NES_Y;
+            Write(addressBus, NES_A & NES_X & SmallTemp);
+            Cycles = 6;
+            break;
         case 0x94: // STY X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
             Write(addressBus, NES_Y);
@@ -1237,6 +1608,11 @@ void Emulate_CPU() {
         case 0x96: // STX Y-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_YIndexed();
             Write(addressBus, NES_X);
+            Cycles = 4;
+            break;
+        case 0x97: // SAX Y-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_YIndexed();
+            Op_SAX(addressBus);
             Cycles = 4;
             break;
         case 0x98: // TYA
@@ -1254,9 +1630,41 @@ void Emulate_CPU() {
             StackPointer = NES_X;
             Cycles = 2;
             break;
+        case 0x9B: // SHS Y-Indexed Absolute
+            addressBus = Read(ProgramCounter);
+            ProgramCounter++;
+            addressBus = (uint16_t)(Read(ProgramCounter) << 8 | addressBus);
+            ProgramCounter++;
+            SmallTemp = (uint8_t)(addressBus >> 8) + 1;
+            addressBus += NES_Y;
+            StackPointer = NES_A & NES_X;
+            Write(addressBus, StackPointer & SmallTemp);
+            Cycles = 5;
+            break;
+        case 0x9C: // SHY X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed();
+            SmallTemp = (uint8_t)((addressBus >> 8) + 1);
+            addressBus += NES_X;
+            Write(addressBus, NES_Y & SmallTemp);
+            Cycles = 5;
+            break;
         case 0x9D: // STA X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
             Write(addressBus, NES_A);
+            Cycles = 5;
+            break;
+        case 0x9E: // SHX Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed();
+            SmallTemp = (uint8_t)((addressBus >> 8) + 1);
+            addressBus += NES_Y;
+            Write(addressBus, NES_X & SmallTemp);
+            Cycles = 5;
+            break;
+        case 0x9F: // SHA Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed();
+            SmallTemp = (uint8_t)(addressBus >> 8) + 1;
+            addressBus += NES_Y;
+            Write(addressBus, NES_A & NES_X & SmallTemp);
             Cycles = 5;
             break;
         case 0xA0: // LDY Immediate
@@ -1274,6 +1682,11 @@ void Emulate_CPU() {
             ProgramCounter++;
             Cycles = 2;
             break;
+        case 0xA3: // LAX X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_LAX(Read(addressBus));
+            Cycles = 6;
+            break;
         case 0xA4: // LDY Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_LDY(Read(addressBus));
@@ -1287,6 +1700,11 @@ void Emulate_CPU() {
         case 0xA6: // LDX Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_LDX(Read(addressBus));
+            Cycles = 3;
+            break;
+        case 0xA7: // LAX Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_LAX(Read(addressBus));
             Cycles = 3;
             break;
         case 0xA8: // TAY
@@ -1306,6 +1724,11 @@ void Emulate_CPU() {
             Flags.Negative = NES_X > 127;
             Cycles = 2;
             break;
+        case 0xAB: // LAX Immediate
+            Op_LAX(Read(ProgramCounter));
+            ProgramCounter++;
+            Cycles = 2;
+            break;
         case 0xAC: // LDY Absolute
             ReadOperands_AbsoluteAddressed();
             Op_LDY(Read(addressBus));
@@ -1319,6 +1742,11 @@ void Emulate_CPU() {
         case 0xAE: // LDX Absolute
             ReadOperands_AbsoluteAddressed();
             Op_LDX(Read(addressBus));
+            Cycles = 4;
+            break;
+        case 0xAF: // LAX Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_LAX(Read(addressBus));
             Cycles = 4;
             break;
         case 0xB0: // BCS
@@ -1339,6 +1767,11 @@ void Emulate_CPU() {
             Op_LDA(Read(addressBus));
             Cycles = 5; // TODO: +1 if page crossed
             break;
+        case 0xB3: // LAX Y-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_YIndexed();
+            Op_LAX(Read(addressBus));
+            Cycles = 5;
+            break;
         case 0xB4: // LDY X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
             Op_LDY(Read(addressBus));
@@ -1352,6 +1785,11 @@ void Emulate_CPU() {
         case 0xB6: // LDX Y-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_YIndexed();
             Op_LDX(Read(addressBus));
+            Cycles = 4;
+            break;
+        case 0xB7: // LAX Y-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_YIndexed();
+            Op_LAX(Read(addressBus));
             Cycles = 4;
             break;
         case 0xB8: // CLV
@@ -1369,6 +1807,11 @@ void Emulate_CPU() {
             Flags.Negative = NES_X > 127;
             Cycles = 2;
             break;
+        case 0xBB: // LAS / LAE Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_LAS(Read(addressBus));
+            Cycles = 4;
+            break;
         case 0xBC: // LDY X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
             Op_LDY(Read(addressBus));
@@ -1384,6 +1827,11 @@ void Emulate_CPU() {
             Op_LDX(Read(addressBus));
             Cycles = 4; // TODO: +1 if page crossed
             break;
+        case 0xBF: // LAX Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_LAX(Read(addressBus));
+            Cycles = 4;
+            break;
         case 0xC0: // CPY Immediate
             Op_CPY(Read(ProgramCounter));
             ProgramCounter++;
@@ -1398,6 +1846,11 @@ void Emulate_CPU() {
             Cycles = 2;
             ProgramCounter++;
             break;
+        case 0xC3: // DCP X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_DCP(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0xC4: // CPY Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_CPY(Read(addressBus));
@@ -1411,6 +1864,11 @@ void Emulate_CPU() {
         case 0xC6: // DEC Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_DEC(addressBus, Read(addressBus));
+            Cycles = 5;
+            break;
+        case 0xC7: // DCP Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_DCP(addressBus, Read(addressBus));
             Cycles = 5;
             break;
         case 0xC8: // INY
@@ -1430,6 +1888,22 @@ void Emulate_CPU() {
             Flags.Negative = NES_X > 127;
             Cycles = 2;
             break;
+        case 0xCB: // SBX Immediate
+            // Temp_High = NES_A;
+            NES_X &= NES_A;
+            SmallTemp = Read(ProgramCounter);
+            Flags.Carry = NES_X >= SmallTemp;
+            NES_X -= SmallTemp;
+            // Flags.Carry = Temp > 255;
+            // Flags.Overflow = (~(NES_X ^ SmallTemp) & (NES_X ^ Temp) & 0x80) > 0;
+            // NES_X = Temp;
+            Flags.Negative = NES_X > 127;
+            Flags.Zero = NES_X == 0;
+            // NES_X = NES_A;
+            // NES_A = Temp_High;
+            ProgramCounter++;
+            Cycles = 2;
+            break;
         case 0xCC: // CPY Absolute
             ReadOperands_AbsoluteAddressed();
             Op_CPY(Read(addressBus));
@@ -1443,6 +1917,11 @@ void Emulate_CPU() {
         case 0xCE: // DEC Absolute
             ReadOperands_AbsoluteAddressed();
             Op_DEC(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
+        case 0xCF: // DCP Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_DCP(addressBus, Read(addressBus));
             Cycles = 6;
             break;
         case 0xD0: // BNE
@@ -1463,6 +1942,11 @@ void Emulate_CPU() {
             Op_CMP(Read(addressBus));
             Cycles = 5; // TODO: +1 if page crossed
             break;
+        case 0xD3: // DCP Y-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_YIndexed();
+            Op_DCP(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0xD4: // NOP X-Indexed Zero Page
             Cycles = 4;
             ProgramCounter++;
@@ -1477,6 +1961,11 @@ void Emulate_CPU() {
             Op_DEC(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0xD7: // DCP X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            Op_DCP(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0xD8: // CLD
             Flags.Decimal = false;
             Cycles = 2;
@@ -1488,6 +1977,11 @@ void Emulate_CPU() {
             break;
         case 0xDA: // NOP
             Cycles = 2;
+            break;
+        case 0xDB: // DCP Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_DCP(addressBus, Read(addressBus));
+            Cycles = 7;
             break;
         case 0xDC: // NOP X-Indexed Absolute
             Cycles = 4;
@@ -1501,6 +1995,11 @@ void Emulate_CPU() {
         case 0xDE: // DEC X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
             Op_DEC(addressBus, Read(addressBus));
+            Cycles = 7;
+            break;
+        case 0xDF: // DCP X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            Op_DCP(addressBus, Read(addressBus));
             Cycles = 7;
             break;
         case 0xE0: // CPX Immediate
@@ -1517,6 +2016,11 @@ void Emulate_CPU() {
             Cycles = 2;
             ProgramCounter++;
             break;
+        case 0xE3: // ISC X-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_XIndexed();
+            Op_ISC(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0xE4: // CPX Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_CPX(Read(addressBus));
@@ -1530,6 +2034,11 @@ void Emulate_CPU() {
         case 0xE6: // INC Zero Page
             ReadOperands_ZeroPageAddressed();
             Op_INC(addressBus, Read(addressBus));
+            Cycles = 5;
+            break;
+        case 0xE7: // ISC Zero Page
+            ReadOperands_ZeroPageAddressed();
+            Op_ISC(addressBus, Read(addressBus));
             Cycles = 5;
             break;
         case 0xE8: // INX
@@ -1566,6 +2075,11 @@ void Emulate_CPU() {
             Op_INC(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0xEF: // ISC Absolute
+            ReadOperands_AbsoluteAddressed();
+            Op_ISC(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0xF0: // BEQ
             SignedTemp = Read(ProgramCounter);
             ProgramCounter++;
@@ -1584,6 +2098,11 @@ void Emulate_CPU() {
             Op_SBC(Read(addressBus));
             Cycles = 5; // TODO: +1 if page crossed
             break;
+        case 0xF3: // ISC Y-Indexed Zero Page Indirect
+            ReadOperands_IndirectAddressed_YIndexed();
+            Op_ISC(addressBus, Read(addressBus));
+            Cycles = 8;
+            break;
         case 0xF4: // NOP X-Indexed Zero Page
             Cycles = 4;
             ProgramCounter++;
@@ -1598,6 +2117,11 @@ void Emulate_CPU() {
             Op_INC(addressBus, Read(addressBus));
             Cycles = 6;
             break;
+        case 0xF7: // ISC X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            Op_ISC(addressBus, Read(addressBus));
+            Cycles = 6;
+            break;
         case 0xF8: // SED
             Flags.Decimal = true;
             Cycles = 2;
@@ -1609,6 +2133,11 @@ void Emulate_CPU() {
             break;
         case 0xFA: // NOP
             Cycles = 2;
+            break;
+        case 0xFB: // ISC Y-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_YIndexed();
+            Op_ISC(addressBus, Read(addressBus));
+            Cycles = 7;
             break;
         case 0xFC: // NOP X-Indexed Absolute
             Cycles = 4;
@@ -1622,6 +2151,11 @@ void Emulate_CPU() {
         case 0xFE: // INC X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
             Op_INC(addressBus, Read(addressBus));
+            Cycles = 7;
+            break;
+        case 0xFF: // ISC X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            Op_ISC(addressBus, Read(addressBus));
             Cycles = 7;
             break;
 
@@ -1790,7 +2324,7 @@ void Emulate_PPU() {
 
     if (ppuDot == 1 && ppuScanline == 241) {
         PPUSTATUS.VBlank = true;
-        // DrawNewFrame = true;
+        DrawNewFrame = true;
         // SaveNESBufferBMP("nesbuffer.bmp");
     }
 
@@ -1798,7 +2332,7 @@ void Emulate_PPU() {
         PPUSTATUS.VBlank = false;
         PPUSTATUS.SpriteOverflow = false;
         PPUSTATUS.Sprite0Hit = false;
-        DrawNewFrame = true;
+        // DrawNewFrame = true;
         // printf(" %d C ", ppuScanline);
     }
 
@@ -1962,11 +2496,11 @@ void Emulate_PPU() {
 }
 
 void NES_Run() {
-	tempTime = HAL_GetTick();
+	// tempTime = HAL_GetTick();
     Emulate_CPU();
-    tempTime2 = HAL_GetTick();
-    CPU_Time += tempTime2 - tempTime;
-    tempTime2 = HAL_GetTick();
+    // tempTime2 = HAL_GetTick();
+    // CPU_Time += tempTime2 - tempTime;
+    // tempTime2 = HAL_GetTick();
     while (Cycles > 0) {
         Cycles--;
         Emulate_PPU();
@@ -1974,10 +2508,11 @@ void NES_Run() {
         Emulate_PPU();
 
     }
-    tempTime = HAL_GetTick();
-    PPU_Time += tempTime - tempTime2;
+    // tempTime = HAL_GetTick();
+    // PPU_Time += tempTime - tempTime2;
 }
 
+#ifndef PC_DEBUG
 void NES_Init(void) {
 	NOKIA_StartDataPrepare();
 	NOKIA_Clear();
@@ -1994,32 +2529,34 @@ void NES_Init(void) {
 
 void NES_Logic(void) {
 //	while (true) {
-		tempTime = HAL_GetTick();
-		Logic_Time += tempTime - tempTime2;
-		NES_Run();
 //		tempTime = HAL_GetTick();
-		if (DrawNewFrame == true) {
+//		Logic_Time += tempTime - tempTime2;
+		while (DrawNewFrame == false) {
+			NES_Run();
+		}
+//		tempTime = HAL_GetTick();
+//		if (DrawNewFrame == true) {
 			DrawNewFrame = false;
-			tempTime = HAL_GetTick();
+//			tempTime = HAL_GetTick();
 			if (HUB75_StartDrawing()) {
 				NES_PrepareDisplay();
-				DrawEmblem();
+//				DrawEmblem();
 //				HUB75_StopDrawing();
 			}
-			tempTime2 = HAL_GetTick();
-			Draw_Time = tempTime2 - tempTime;
+//			tempTime2 = HAL_GetTick();
+//			Draw_Time = tempTime2 - tempTime;
 			tempTime = HAL_GetTick();
 			Frame_Time = tempTime - tempTime3;
 			tempTime3 = HAL_GetTick();
-			CPU_Time = 0;
-			PPU_Time = 0;
-			Draw_Time = 0;
-			Logic_Time = 0;
-		}
-		tempTime2 = HAL_GetTick();
+//			CPU_Time = 0;
+//			PPU_Time = 0;
+//			Draw_Time = 0;
+//			Logic_Time = 0;
+//		}
+//		tempTime2 = HAL_GetTick();
 }
-
-int nes_main() {
+#else
+int main() {
     NES_Reset();
     // printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tSP: %x", ProgramCounter, opcode, opnames[opcode], addressBus, A, X, Y, StackPointer);
     // printf("\n");
@@ -2030,18 +2567,34 @@ int nes_main() {
         NES_Run();
         // if (PPUSTATUS.VBlank == true && ppuScanline == 241 && ppuDot < 50) {
         // if (opcode == 0x02) {
+        // printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
+        // fflush(stdin);
+        // getc(stdin);
         if (DrawNewFrame == true) {
             DrawNewFrame = false;
-            // NES_DebugVRAM();
-//            SaveNESBufferBMP("nesbuffer.bmp");
-            NES_PrepareDisplay();
-//            SaveDisplayBufferBMP("displaybuffer.bmp");
-//            NES_DebugVRAM();
-//            SaveNESBufferBMP("vrambuffer.bmp");
-//            printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tdot: %d  \tline: %d", ProgramCounter, opcode, opnames[opcode], addressBus, A, X, Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, ppuDot, ppuScanline);
-//            fflush(stdin);
-//            getc(stdin);
+            frameCounter++;
+            if (frameCounter == 50) Controller1Buttons = 0b00001000;
+            if (frameCounter == 60) Controller1Buttons = 0b00000000;
+            if (frameCounter % 3000 == 0) {
+            // if (frameCounter % 1000 == 0) {
+            // if (true) {
+                // NES_DebugVRAM();
+                SaveNESBufferBMP("nesbuffer.bmp");
+                NES_PrepareDisplay();
+                SaveDisplayBufferBMP("displaybuffer.bmp");
+                NES_DebugVRAM();
+                SaveNESBufferBMP("vrambuffer.bmp");
+                printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
+                fflush(stdin);
+                getc(stdin);
+            }
+        }
+        if (frameCounter > 3000) {
+            printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
+            fflush(stdin);
+            getc(stdin);
         }
     }
     return 0;
 }
+#endif
