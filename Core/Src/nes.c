@@ -27,8 +27,19 @@ uint32_t tempTime;
 uint32_t tempTime2;
 uint32_t tempTime3;
 
-uint16_t DisplayBuffer[30][64]; // y x
-uint8_t NESBuffer[241][256][3]; // line dot rgb
+uint8_t PRGSIZE;
+uint8_t PRGSIZEMASK;
+const uint8_t *BASEPRGADDRESS;
+uint8_t CHRSIZE;
+uint8_t CHRSIZEMASK;
+uint8_t *BASECHRADDRESS;
+uint8_t MAPPER;
+bool MIRRORING;
+
+//uint16_t DisplayBuffer[30][64]; // y x
+//uint8_t NESBuffer[241][256][3]; // line dot rgb
+uint16_t NESBufferFast[32][64][3]; // line dot rgb
+//uint8_t EventBuffer[262][342][3]; // line dot rgb
 bool DrawNewFrame = false;
 
 uint16_t ProgramCounter;
@@ -45,8 +56,15 @@ uint8_t SmallTemp;
 
 uint16_t addressBus;
 uint8_t opcode;
+uint8_t OpenBus;
 
-uint8_t selectedROM = 2;
+ uint8_t selectedROM = ROM_SuperMario;
+// uint8_t selectedROM = ROM_Mapperless;
+// uint8_t selectedROM = ROM_WaifuMaterial;
+// uint8_t selectedROM = ROM_AccuracyCoinStary;
+// uint8_t selectedROM = ROM_AccuracyCoinNowy;
+//uint8_t selectedROM = ROM_Contra;
+// uint8_t selectedROM = ROM_MicroMachines;
 
 typedef union {
     struct {
@@ -65,10 +83,15 @@ typedef union {
 FlagsBitfield Flags;
 
 bool CPU_Halted = false;
-uint8_t Cycles = 0;
+uint32_t Cycles = 0;
+uint8_t CyclesLeft = 0;
+uint32_t AddOAMCycles = 0;
+uint8_t AddDMCCycles = 0;
+bool AddAlignmentCycle = false;
 
 uint8_t RAM[0x800];
-const uint8_t *CHRData;
+uint8_t CHRRAM[0x2000];
+uint8_t *CHRData;
 const uint8_t *PRG0Data;
 const uint8_t *PRG1Data;
 const uint8_t *HeaderData;
@@ -76,6 +99,9 @@ const uint8_t *HeaderData;
 uint16_t ppuDot = 0;
 uint16_t ppuScanline = 0;
 uint16_t ppuAddressBus;
+
+uint16_t ppuFastDot = 0;
+uint16_t ppuFastScanline = 0;
 
 uint8_t VRAM[0x800];
 uint8_t PaletteRAM[0x20];
@@ -98,7 +124,8 @@ uint8_t ppuSpriteEvalTemp;
 uint8_t ppuOAMAddress;
 bool ppuSpriteEvaluationOAMOverflowed;
 uint8_t ppuSpriteEvalTick;
-bool ppuScanlineContainsSpriteZero;
+bool ppuNextScanlineContainsSpriteZero;
+bool ppuCurrentScanlineContainsSpriteZero;
 uint8_t ppuSecondaryOAMSize;
 
 uint8_t ppu_SpriteShiftRegisterL[8];
@@ -106,8 +133,8 @@ uint8_t ppu_SpriteShiftRegisterH[8];
 
 uint8_t ppu_SpriteAttribute[8];
 uint8_t ppu_SpritePattern[8];
-uint8_t ppu_SpriteXposition[8];
-uint8_t ppu_SpriteYposition[8];
+int16_t ppu_SpriteXposition[8];
+int16_t ppu_SpriteYposition[8];
 
 typedef union {
     struct {
@@ -165,7 +192,8 @@ uint8_t PPUReadBuffer;
 
 bool NMILevelDetector;
 bool DoNMI;
-bool NMIHijack;
+// bool DMCIRQenabled;
+bool DoBRK;
 
 uint32_t frameCounter;
 
@@ -174,6 +202,60 @@ uint8_t Controller2Buttons = 0b00000000;;
 uint8_t Controller1ShiftRegister;
 uint8_t Controller2ShiftRegister;
 
+uint32_t APUDMC_BytesRemaining;
+
+typedef union {
+    struct {
+        bool EnablePulse1 : 1;
+        bool EnablePulse2 : 1;
+        bool EnableTriangle : 1;
+        bool EnableNoise : 1;
+        bool EnableDMC : 1;
+        bool OpenBus : 1;
+        bool FrameInterrupt : 1;
+        bool DMCInterrupt : 1;
+    };
+    uint8_t Raw;
+} APUSTATUSBitfield;
+
+APUSTATUSBitfield APUSTATUS;
+
+typedef union {
+    struct {
+        uint8_t RateIndex : 4;
+        uint8_t OpenBus : 2;
+        bool Loop : 1;
+        bool EnableIRQ : 1;
+    };
+    uint8_t Raw;
+} DMCFLAGSBitfield;
+
+DMCFLAGSBitfield DMCFLAGS;
+
+uint8_t DMCDirectLoad;
+uint8_t DMCSampleAddress;
+uint32_t DMCSampleLength;
+uint32_t DMCCycleCount;
+uint8_t DMCLoadDelay;
+bool DMCBytesRemainingWriteRequest;
+bool DMCBytesRemainingReloadRequest;
+
+const uint16_t DMCCycleTable[] = {428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84,  72,  54};
+
+typedef union {
+    struct {
+        uint8_t OpenBus : 6;
+        bool InterruptInhibit : 1;
+        bool SequencerMode : 1;
+    };
+    uint8_t Raw;
+} APUCOUNTERBitfield;
+
+APUCOUNTERBitfield APUCOUNTER;
+
+uint32_t APUFrameCounter;
+
+#ifdef PC_DEBUG
 void NES_DebugVRAM() {
     for (uint8_t row = 0; row < 30; row++) {
         for (uint8_t column = 0; column < 32; column++) {
@@ -204,8 +286,10 @@ void NES_DebugVRAM() {
         }
     }
 }
+#endif
 
 #ifndef PC_DEBUG
+	#ifndef NES_FAST
 void NES_PrepareDisplay() {
     for (uint8_t j = 0; j < 30; j++) {
         for (uint8_t i = 0; i < 64; i++) {
@@ -228,6 +312,25 @@ void NES_PrepareDisplay() {
         }
     }
 }
+	#endif
+
+void NES_PrepareDisplayFast() {
+    for (uint8_t j = 0; j < 30; j++) {
+    	NESBufferFast[j][0][0] = 0;
+    	NESBufferFast[j][0][1] = 0;
+    	NESBufferFast[j][0][2] = 0;
+        for (uint8_t i = 0; i < 64; i++) {
+            NESBufferFast[j][i][0] >>= 6; // div 8 and move to 5 bits
+            NESBufferFast[j][i][1] >>= 6;
+            NESBufferFast[j][i][2] >>= 6;
+            HUB75_s_framebuf[HUB75_current_draw_frame][j][i].color = (NESBufferFast[j][i][0] << 10) | (NESBufferFast[j][i][1] << 5) | (NESBufferFast[j][i][2] << 0);
+            NESBufferFast[j][i][0] = 0;
+            NESBufferFast[j][i][1] = 0;
+            NESBufferFast[j][i][2] = 0;
+        }
+    }
+}
+
 #else
 
 void NES_PrepareDisplay() {
@@ -249,6 +352,29 @@ void NES_PrepareDisplay() {
             tempRGB[2] /= 4*8;
             tempRGB[2] >>= 3;
             DisplayBuffer[j][i] = (tempRGB[2] << 10) | (tempRGB[1] << 5) | (tempRGB[0] << 0);
+        }
+    }
+}
+
+void NES_PrepareDisplayFast() {
+    for (uint8_t j = 0; j < 30; j++) {
+        for (uint8_t i = 0; i < 64; i++) {
+            // DisplayBuffer[j][i] = 0;
+            // uint32_t tempRGB[3] = {0, 0, 0};
+            // for (uint8_t q = 0; q < 8; q++) {
+            //     for (uint8_t p = 0; p < 4; p++) {
+            //         tempRGB[0] += NESBuffer[(j*8)+q][(i*4)+p][0];
+            //         tempRGB[1] += NESBuffer[(j*8)+q][(i*4)+p][1];
+            //         tempRGB[2] += NESBuffer[(j*8)+q][(i*4)+p][2];
+            //     }
+            // }
+            NESBufferFast[j][i][0] >>= 6; // div 8 and move to 5 bits
+            NESBufferFast[j][i][1] >>= 6;
+            NESBufferFast[j][i][2] >>= 6;
+            DisplayBuffer[j][i] = (NESBufferFast[j][i][2] << 10) | (NESBufferFast[j][i][1] << 5) | (NESBufferFast[j][i][0] << 0);
+            NESBufferFast[j][i][0] = 0;
+            NESBufferFast[j][i][1] = 0;
+            NESBufferFast[j][i][2] = 0;
         }
     }
 }
@@ -300,6 +426,86 @@ void SaveNESBufferBMP(const char* filename) {
    WriteBMP(filename, 256, 240, (const uint8_t*)NESBuffer);
 }
 
+void SaveNESBufferBMPNumbered(const char* base, uint32_t number) {
+    char filename[256];
+    snprintf(filename, sizeof(filename), "%s%u.bmp", base, number);
+    SaveNESBufferBMP(filename);
+}
+
+// ---- Export EventBuffer (256x240, already RGB888) ---------------------------
+void SaveEventBufferBMP(const char* filename) {
+    WriteBMP(filename, 342, 262, (const uint8_t*)EventBuffer);
+}
+
+void SaveEventBufferBMPNumbered(const char* base, uint32_t number) {
+    char filename[256];
+    snprintf(filename, sizeof(filename), "%s%u.bmp", base, number);
+    SaveEventBufferBMP(filename);
+}
+
+// ---- Merge NESBuffer (bottom layer) + EventBuffer (top layer, black = transparent) ----
+// Canvas is sized to fit the larger buffer (EventBuffer: 342x262).
+// NESBuffer (256x240) is placed at top-left as the base layer.
+// EventBuffer (342x262) is placed at top-left on top, with black pixels (0,0,0)
+// treated as transparent so the NES image shows through.
+static uint8_t* MergeNESAndEventBuffers(int* outWidth, int* outHeight) {
+    const int nesW = 256, nesH = 240;
+    const int evtW = 342, evtH = 262;
+
+    int width  = (evtW > nesW) ? evtW : nesW;   // 342
+    int height = (evtH > nesH) ? evtH : nesH;   // 262
+
+    uint8_t* merged = (uint8_t*)malloc((size_t)width * height * 3);
+    if (!merged) return NULL;
+    memset(merged, 0, (size_t)width * height * 3); // black background
+
+    // --- Bottom layer: NESBuffer, top-left aligned ---
+    const uint8_t* nes = (const uint8_t*)NESBuffer;
+    for (int y = 0; y < nesH; y++) {
+        for (int x = 0; x < nesW; x++) {
+            const uint8_t* srcPx = &nes[((size_t)y * nesW + x) * 3];
+            uint8_t* dstPx = &merged[((size_t)y * width + x) * 3];
+            dstPx[0] = srcPx[0];
+            dstPx[1] = srcPx[1];
+            dstPx[2] = srcPx[2];
+        }
+    }
+
+    // --- Top layer: EventBuffer, top-left aligned, black = transparent ---
+    const uint8_t* evt = (const uint8_t*)EventBuffer;
+    for (int y = 0; y < evtH; y++) {
+        for (int x = 0; x < evtW; x++) {
+            const uint8_t* srcPx = &evt[((size_t)y * evtW + x) * 3];
+            if (srcPx[0] == 0 && srcPx[1] == 0 && srcPx[2] == 0)
+                continue; // transparent, let NES buffer (or background) show through
+
+                uint8_t* dstPx = &merged[((size_t)y * width + x) * 3];
+            dstPx[0] = srcPx[0];
+            dstPx[1] = srcPx[1];
+            dstPx[2] = srcPx[2];
+        }
+    }
+
+    *outWidth  = width;
+    *outHeight = height;
+    return merged;
+}
+
+// ---- Export merged buffer ---------------------------
+void SaveMergedBufferBMP(const char* filename) {
+    int w, h;
+    uint8_t* merged = MergeNESAndEventBuffers(&w, &h);
+    if (!merged) { fprintf(stderr, "SaveMergedBufferBMP: allocation failed\n"); return; }
+    WriteBMP(filename, w, h, merged);
+    free(merged);
+}
+
+void SaveMergedBufferBMPNumbered(const char* base, uint32_t number) {
+    char filename[256];
+    snprintf(filename, sizeof(filename), "%s%u.bmp", base, number);
+    SaveMergedBufferBMP(filename);
+}
+
 // ---- Export DisplayBuffer (0b0bbbbbgggggrrrrr, 5 bits/channel) ------------
 void SaveDisplayBufferBMP(const char* filename) {
    const int width  = 64;   // matches DisplayBuffer[30][64] -> x
@@ -334,7 +540,7 @@ uint8_t ReadPPU(uint16_t Address) {
         return CHRData[Address];
     }
     else if (Address < 0x3F00) {
-        if ((HeaderData[6] & 1) == 0) {
+        if (!MIRRORING) {
             return VRAM[(Address & 0x3FF) | (Address & 0x800) >> 1];
         } else {
             return VRAM[Address & 0x7FF];
@@ -355,6 +561,9 @@ uint8_t Read(uint16_t Address) {
     }
     else if (Address < 0x4000) {
         Address &= 0x07;
+//        EventBuffer[ppuScanline][ppuDot][0] = 0x00;
+//        EventBuffer[ppuScanline][ppuDot][1] = 0xFF;
+//        EventBuffer[ppuScanline][ppuDot][2] = 0x00;
         switch (Address) {
             case 0x02:
                 SmallTemp = PPUSTATUS.Raw;
@@ -376,6 +585,16 @@ uint8_t Read(uint16_t Address) {
                 return 0;
         }
     }
+    else if (Address == 0x4015) {
+//        printf(" Read $%x\n",Address);
+        APUSTATUS.EnableDMC = APUDMC_BytesRemaining > 0;
+        SmallTemp = APUSTATUS.Raw;
+        APUSTATUS.FrameInterrupt = false;
+        // EventBuffer[ppuScanline][ppuDot][0] = 0xFF;
+        // EventBuffer[ppuScanline][ppuDot][1] = 0x00;
+        // EventBuffer[ppuScanline][ppuDot][2] = 0x00;
+        return SmallTemp;
+    }
     else if (Address == 0x4016) {
         uint8_t controllerBit = (uint8_t)(Controller1ShiftRegister & 0x01);
         Controller1ShiftRegister >>= 1;
@@ -395,6 +614,7 @@ uint8_t Read(uint16_t Address) {
     else if (Address >= 0x8000) {
         return PRG0Data[Address - 0x8000];
     }
+//    printf(" Read %x\n", Address);
     return 0;
 }
 
@@ -404,6 +624,9 @@ void Write(uint16_t Address, uint8_t Data) {
     }
     else if (Address < 0x4000) {
         Address &= 0x7;
+//        EventBuffer[ppuScanline][ppuDot][0] = 0xFF;
+//        EventBuffer[ppuScanline][ppuDot][1] = 0x00;
+//        EventBuffer[ppuScanline][ppuDot][2] = 0x00;
 
         switch (Address) {
             case 0x00: // PPUCTRL
@@ -447,12 +670,12 @@ void Write(uint16_t Address, uint8_t Data) {
 
             case 0x07: // PPUDATA
                 if (VRAMAddress < 0x2000) { // Pattern Table
-                    // if (HeaderData[5] == 0) {
-                    //     CHRData[VRAMAddress] = Data;
-                    // }
+                    if (CHRSIZE == 0) {
+                        CHRData[VRAMAddress] = Data;
+                    }
                 }
                 else if (VRAMAddress < 0x3F00) { // Nametables
-                    if ((HeaderData[6] & 1) == 0) { // horizontal mirroring
+                    if (!MIRRORING) { // horizontal mirroring
                         VRAM[(VRAMAddress & 0x3FF) | (VRAMAddress & 0x800) >> 1] = Data;
                     } else { // vertical mirroring
                         VRAM[VRAMAddress & 0x7FF] = Data;
@@ -471,10 +694,86 @@ void Write(uint16_t Address, uint8_t Data) {
                 break;
         }
     }
+    else if (Address == 0x4010) {
+//        printf("\nBytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+        DMCFLAGS.Raw = Data & 0b11001111;
+        DMCCycleCount = DMCCycleTable[DMCFLAGS.RateIndex] << 3; // x 8 bits
+        if (DMCFLAGS.EnableIRQ == false) {
+            APUSTATUS.DMCInterrupt = false;
+            // APUSTATUS.FrameInterrupt = false;
+        }
+        // DMCIRQenabled = (Data & 0b10000000) > 0;
+//        printf(" Write $%x : %x\n",Address, Data);
+//        printf("BytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+//        EventBuffer[ppuScanline][ppuDot][0] = 0xFF;
+//        EventBuffer[ppuScanline][ppuDot][1] = 0x00;
+//        EventBuffer[ppuScanline][ppuDot][2] = 0xFF;
+    }
+    // else if (Address == 0x4011) {
+    //     DMCDirectLoad = Data & 0b01111111;
+    //     // printf(" Write $%x : %x\n",Address, Data);
+    // }
+    // else if (Address == 0x4012) {
+    //     DMCSampleAddress = Data;
+    //     // printf(" Write $%x : %x\n",Address, Data);
+    // }
+    else if (Address == 0x4013) {
+//        printf("\nBytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+        DMCSampleLength = (Data << 4) | 1;
+        // DMCSampleLength = Data;
+        // APUDMC_BytesRemaining = DMCSampleLength;
+//        printf(" Write $%x : %x\n",Address, Data);
+//        printf("BytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+//        EventBuffer[ppuScanline][ppuDot][0] = 0xFF;
+//        EventBuffer[ppuScanline][ppuDot][1] = 0x00;
+//        EventBuffer[ppuScanline][ppuDot][2] = 0xFF;
+    }
+    else if (Address == 0x4015) {
+//        printf("\nBytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+//        printf(" Write $%x : %x\n",Address, Data);
+        APUSTATUS.Raw = Data & 0b00010000;
+        APUSTATUS.DMCInterrupt = false;
+        if (APUSTATUS.EnableDMC && APUDMC_BytesRemaining == 0) {
+            // DMCLoadDelay = 6 + AddAlignmentCycle;
+            // if (DMCLoadDelay == 0) DMCLoadDelay = 4 - AddAlignmentCycle;
+            if (DMCLoadDelay == 0) DMCLoadDelay = 3 + AddAlignmentCycle;
+            // if (DMCLoadDelay == 0) DMCLoadDelay = 1;
+            DMCBytesRemainingWriteRequest = true;
+            // if (DMCLoadDelay > (4 - AddAlignmentCycle)) {
+            //     printf(" BIG DELAY %x\n", DMCLoadDelay);
+            //     fflush(stdin);
+            //     getc(stdin);
+            // }
+            // APUDMC_BytesRemaining = DMCSampleLength;
+            // DMCCycleCount = (DMCCycleTable[DMCFLAGS.RateIndex] << 3); // x 8 bits
+        }
+        if (APUSTATUS.EnableDMC == false) {
+            APUDMC_BytesRemaining = 0;
+            DMCCycleCount = 0;
+        }
+//        printf("BytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+//        EventBuffer[ppuScanline][ppuDot][0] = 0xFF;
+//        EventBuffer[ppuScanline][ppuDot][1] = 0x00;
+//        EventBuffer[ppuScanline][ppuDot][2] = 0xFF;
+    }
+    else if (Address == 0x4017) {
+//        printf("\nBytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+        APUCOUNTER.Raw = Data & 0b11000000;
+        if (Data & 0b01000000) {
+            APUSTATUS.FrameInterrupt = false;
+        }
+        APUFrameCounter = 0;
+//        printf(" Write $%x : %x\n",Address, Data);
+//        printf("BytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+        // fflush(stdin);
+        // getc(stdin);
+    }
     else if (Address == 0x4014) {
         for (uint16_t i = 0; i < 256; i++) {
             OAM[i] = Read((uint16_t)((Data << 8) + i));
         }
+        AddOAMCycles = 513 + AddAlignmentCycle;
+        // printf(" OAM DMA Write $%x : %x\n",Address, Data);
     }
     else if (Address == 0x4016) {
         Controller1ShiftRegister = Controller1Buttons;
@@ -483,6 +782,17 @@ void Write(uint16_t Address, uint8_t Data) {
     // else if (Address >= 0x6000 && Address < 0x8000) {
     //     printf("%c", Data);
     // }
+    else if (Address >= 0x8000) {
+//        EventBuffer[ppuScanline][ppuDot][0] = 0x00;
+//        EventBuffer[ppuScanline][ppuDot][1] = 0x00;
+//        EventBuffer[ppuScanline][ppuDot][2] = 0xFF;
+        if (MAPPER == 3) {
+            CHRData = BASECHRADDRESS + (0x2000 * (Data & CHRSIZEMASK));
+        }
+        else if (MAPPER == 2 || MAPPER == 71) {
+            PRG0Data = BASEPRGADDRESS + (0x4000 * (Data & PRGSIZEMASK));
+        }
+    }
 }
 
 void Push(uint8_t Value) {
@@ -771,9 +1081,48 @@ void Op_LAS(uint8_t Input) {
 
 void NES_Reset() {
     HeaderData = HEADERLIST[selectedROM];
-    PRG0Data = ROMLIST[selectedROM]+0x0000;
-    PRG1Data = ROMLIST[selectedROM]+0x4000;
-    CHRData = ROMLIST[selectedROM]+0x8000;
+    PRGSIZE = HeaderData[4];
+    if (PRGSIZE > 0) PRGSIZEMASK = PRGSIZE - 1;
+    else PRGSIZEMASK = 0;
+    CHRSIZE = HeaderData[5];
+    if (CHRSIZE > 0) CHRSIZEMASK = CHRSIZE - 1;
+    else CHRSIZEMASK = 0;
+    MAPPER = (HeaderData[6] >> 4) | (HeaderData[7] & 0xF0);
+    MIRRORING = HeaderData[6] & 0x01;
+    BASEPRGADDRESS = ROMLIST[selectedROM];
+    BASECHRADDRESS = BASEPRGADDRESS + (0x4000 * PRGSIZE);
+
+    if (MAPPER == 0) { // NROM
+        PRG0Data = BASEPRGADDRESS;
+        PRG1Data = BASEPRGADDRESS + (0x4000 * PRGSIZEMASK);
+        if (CHRSIZE == 0) CHRData = CHRRAM;
+        else CHRData = BASECHRADDRESS;
+    }
+    else if (MAPPER == 2 || MAPPER == 71) { // UNROM
+        PRG0Data = BASEPRGADDRESS;
+        PRG1Data = BASEPRGADDRESS + (0x4000 * PRGSIZEMASK);
+        if (CHRSIZE == 0) CHRData = CHRRAM;
+        else CHRData = BASECHRADDRESS;
+    }
+    else if (MAPPER == 3) { // CNROM
+        PRG0Data = BASEPRGADDRESS;
+        PRG1Data = BASEPRGADDRESS + (0x4000 * PRGSIZEMASK);
+        if (CHRSIZE == 0) CHRData = CHRRAM;
+        else CHRData = BASECHRADDRESS;
+    }
+    else if (MAPPER == 7) { // ANROM
+        PRG0Data = BASEPRGADDRESS;
+        PRG1Data = BASEPRGADDRESS + 0x4000;
+        if (CHRSIZE == 0) CHRData = CHRRAM;
+        else CHRData = BASECHRADDRESS;
+    }
+
+    // PRG1Data = ROMLIST[selectedROM]+0x4000;
+    // if (HeaderData[5] == 0) {
+    //     CHRData = CHRRAM;
+    // } else {
+    //     CHRData = ROMLIST[selectedROM]+0x8000;
+    // }
     Flags.Carry = false;
     Flags.Zero = false;
     Flags.InterruptDisable = true;
@@ -782,6 +1131,14 @@ void NES_Reset() {
     Flags.Expansion = true;
     Flags.Overflow = false;
     Flags.Negative = false;
+    APUSTATUS.Raw = 0;
+    APUCOUNTER.Raw = 0;
+    DMCFLAGS.Raw = 0;
+    DMCSampleLength = 1;
+    DMCCycleCount = 0;
+    APUDMC_BytesRemaining = 0;
+    DMCBytesRemainingWriteRequest = false;
+    DMCBytesRemainingReloadRequest = false;
 
     Temp_Low = Read(0xFFFC);
     Temp_High = Read(0xFFFD);
@@ -790,19 +1147,145 @@ void NES_Reset() {
     // printf("%x\n", ProgramCounter);
 }
 
+void Emulate_APU() {
+    if (AddAlignmentCycle) {
+        APUFrameCounter++;
+        if (APUFrameCounter >= 14914) {
+            APUFrameCounter = 0;
+            if (APUCOUNTER.Raw == 0) {
+                APUSTATUS.FrameInterrupt = true;
+                // printf(" Frame Counter IRQ\n");
+                // fflush(stdin);
+                // getc(stdin);
+            }
+        }
+    }
+
+    // if (DMCLoadDelay > 0) {
+    //     DMCLoadDelay--;
+    //     if (DMCLoadDelay == 0) {
+            // APUDMC_BytesRemaining = DMCSampleLength;
+            // DMCCycleCount = (DMCCycleTable[DMCFLAGS.RateIndex] << 3); // x 8 bits
+    //     }
+    // }
+
+    // Cycles += DMCLoadDelay + AddAlignmentCycle;
+    // Cycles += DMCLoadDelay;
+    // DMCLoadDelay = 0;
+
+    if (DMCLoadDelay > 0) {
+        DMCLoadDelay--;
+        if (DMCLoadDelay == 0) {
+            // Cycles += 3 + AddAlignmentCycle;
+            if (DMCBytesRemainingReloadRequest || DMCBytesRemainingWriteRequest) APUDMC_BytesRemaining = DMCSampleLength;
+            DMCBytesRemainingWriteRequest = false;
+            DMCBytesRemainingReloadRequest = false;
+            DMCCycleCount = (DMCCycleTable[DMCFLAGS.RateIndex] << 3); // x 8 bits
+        }
+//        EventBuffer[ppuScanline][ppuDot][0] = 0xFF;
+//        EventBuffer[ppuScanline][ppuDot][1] = 0xFF;
+//        EventBuffer[ppuScanline][ppuDot][2] = 0x00;
+        // Cycles += 1;
+        // DMCLoadDelay = 0;
+    }
+
+    else if (DMCCycleCount) {
+        DMCCycleCount--;
+    }
+    // else if (DMCLoadDelay > 0) {
+    //     DMCLoadDelay--;
+    //     if (DMCLoadDelay == 0) {
+    //         // Cycles += 3 + AddAlignmentCycle;
+    //         if (DMCFLAGS.Loop) APUDMC_BytesRemaining = DMCSampleLength;
+    //         DMCCycleCount = (DMCCycleTable[DMCFLAGS.RateIndex] << 3); // x 8 bits
+    //     }
+    //     // Cycles += 1;
+    //     // DMCLoadDelay = 0;
+    // }
+    else if (APUSTATUS.EnableDMC) {
+        // if (DMCLoadDelay) {
+        //     Cycles += DMCLoadDelay + AddAlignmentCycle;
+        //     DMCLoadDelay = 0;
+        // }
+        if (APUDMC_BytesRemaining > 0) {
+            APUDMC_BytesRemaining--;
+            if (APUDMC_BytesRemaining == 0) {
+                if (DMCFLAGS.Loop) {
+                    DMCBytesRemainingReloadRequest = true;
+                    APUDMC_BytesRemaining = DMCSampleLength;
+                    DMCCycleCount = (DMCCycleTable[DMCFLAGS.RateIndex] << 3);
+                    // AddDMCCycles = 3 + AddAlignmentCycle;
+                    // Cycles += 3 + AddAlignmentCycle;
+                    // if (DMCLoadDelay == 0) DMCLoadDelay = 3 + AddAlignmentCycle;
+                    if (DMCLoadDelay == 0) DMCLoadDelay = 4;
+                    // if (DMCLoadDelay == 0) DMCLoadDelay = 1;
+                    // if (DMCLoadDelay > (3 + AddAlignmentCycle)) {
+                    //     printf(" BIG DELAY %x\n", DMCLoadDelay);
+                    //     fflush(stdin);
+                    //     getc(stdin);
+                    // }
+                    // DMCLoadDelay += 3;
+                    // Cycles += 3;
+                } else {
+                    APUSTATUS.EnableDMC = false;
+                }
+                if (DMCFLAGS.EnableIRQ && !DMCFLAGS.Loop) {
+                    APUSTATUS.DMCInterrupt = true;
+//                    EventBuffer[ppuScanline][ppuDot][0] = 0xFF;
+//                    EventBuffer[ppuScanline][ppuDot][1] = 0xFF;
+//                    EventBuffer[ppuScanline][ppuDot][2] = 0xFF;
+                }
+            } else {
+                DMCCycleCount = (DMCCycleTable[DMCFLAGS.RateIndex] << 3);
+                // AddDMCCycles = 3 + AddAlignmentCycle;
+                // Cycles += 3 + AddAlignmentCycle;
+                // if (DMCLoadDelay == 0) DMCLoadDelay = 3 + AddAlignmentCycle;
+                if (DMCLoadDelay == 0) DMCLoadDelay = 4;
+                // if (DMCLoadDelay == 0) DMCLoadDelay = 1;
+                // if (DMCLoadDelay > (3 + AddAlignmentCycle)) {
+                //     printf(" BIG DELAY %x\n", DMCLoadDelay);
+                //     fflush(stdin);
+                //     getc(stdin);
+                // }
+                // DMCLoadDelay += 3;
+                // Cycles += 3;
+            }
+        } else {
+//            printf(" PANIC PANIC PANIC PANIC PANIC PANIC\n");
+//            fflush(stdin);
+//            getc(stdin);
+        }
+        // if (DMCLoadDelay > 0) {
+        //     DMCLoadDelay--;
+        //     if (DMCLoadDelay == 0) {
+        //         // Cycles += 3 + AddAlignmentCycle;
+        //         if (DMCFLAGS.Loop) APUDMC_BytesRemaining = DMCSampleLength;
+        //         DMCCycleCount = (DMCCycleTable[DMCFLAGS.RateIndex] << 3); // x 8 bits
+        //     }
+        //     // Cycles += 1;
+        //     // DMCLoadDelay = 0;
+        // }
+    }
+
+    // if (DMCLoadDelay) {
+    //     // Cycles += 1 - AddAlignmentCycle;
+    //     Cycles += 1;
+    //     DMCLoadDelay = 0;
+    // }
+
+}
+
 void Emulate_CPU() {
     bool PreviousNMILevelDetector = NMILevelDetector;
     NMILevelDetector = PPUCTRL.NMI && PPUSTATUS.VBlank;
     if (!PreviousNMILevelDetector && NMILevelDetector) DoNMI = true;
 
-    NMIHijack = false;
+    bool DoIRQ = (APUSTATUS.DMCInterrupt || APUSTATUS.FrameInterrupt) && (!Flags.InterruptDisable);
 
-    if (DoNMI) {
+    // if (APUSTATUS.DMCInterrupt) printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tdot: %d  \tline: %d\n", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, ppuDot, ppuScanline);
+
+    if ((DoNMI || DoIRQ)) {
         opcode = 0x00;
-        if (Read(ProgramCounter) == 0x00) {
-            NMIHijack = true;
-            ProgramCounter++;
-        }
     } else {
         opcode = Read(ProgramCounter);
         // printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tdot: %d  \tline: %d\n", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, ppuDot, ppuScanline);
@@ -819,18 +1302,19 @@ void Emulate_CPU() {
 
     switch (opcode) {
         case 0x00: // BRK, NMI, IRQ
-            bool IsRealBRK = !DoNMI || NMIHijack;
-            if (IsRealBRK) {
+            if (!(DoNMI || DoIRQ)) {
                 ProgramCounter++;
             }
             Push((uint8_t)(ProgramCounter >> 8));
             Push((uint8_t)(ProgramCounter));
-            Flags.Break = IsRealBRK;
+            Flags.Break = (DoNMI || DoIRQ) ? false : true;
             Push(Flags.Raw | 0b00100000);
             Flags.InterruptDisable = true;
             Temp_Low = Read((uint16_t)(DoNMI ? 0xFFFA : 0xFFFE));
             Temp_High = Read((uint16_t)(DoNMI ? 0xFFFB : 0xFFFF));
             ProgramCounter = (uint16_t)((Temp_High * 0x100) + Temp_Low);
+            // if (DoNMI) printf(" BRK NMI\n");
+            if (DoIRQ) printf(" BRK IRQ\n");
             DoNMI = false;
             Cycles = 7;
             break;
@@ -849,8 +1333,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0x04: // NOP Zero Page
+            ReadOperands_ZeroPageAddressed();
+            OpenBus = Read(addressBus);
             Cycles = 3;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0x05: // ORA Zero Page
             ReadOperands_ZeroPageAddressed();
@@ -890,8 +1376,10 @@ void Emulate_CPU() {
             Cycles = 2;
             break;
         case 0x0C: // NOP Absolute
+            ReadOperands_AbsoluteAddressed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter += 2;
+            // ProgramCounter += 2;
             break;
         case 0x0D: // ORA Absolute
             ReadOperands_AbsoluteAddressed();
@@ -932,8 +1420,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0x14: // NOP X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0x15: // ORA X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
@@ -968,8 +1458,10 @@ void Emulate_CPU() {
             Cycles = 7;
             break;
         case 0x1C: // NOP X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter += 2;
+            // ProgramCounter += 2;
             break;
         case 0x1D: // ORA X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
@@ -1095,8 +1587,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0x34: // NOP X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0x35: // AND X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
@@ -1131,8 +1625,10 @@ void Emulate_CPU() {
             Cycles = 7;
             break;
         case 0x3C: // NOP X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter += 2;
+            // ProgramCounter += 2;
             break;
         case 0x3D: // AND X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
@@ -1167,8 +1663,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0x44: // NOP Zero Page
+            ReadOperands_ZeroPageAddressed();
+            OpenBus = Read(addressBus);
             Cycles = 3;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0x45: // EOR Zero Page
             ReadOperands_ZeroPageAddressed();
@@ -1256,8 +1754,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0x54: // NOP X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0x55: // EOR X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
@@ -1276,6 +1776,7 @@ void Emulate_CPU() {
             break;
         case 0x58: // CLI
             Flags.InterruptDisable = false;
+//            printf(" CLI\n");
             Cycles = 2;
             break;
         case 0x59: // EOR Y-Indexed Absolute
@@ -1292,8 +1793,10 @@ void Emulate_CPU() {
             Cycles = 7;
             break;
         case 0x5C: // NOP X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter += 2;
+            // ProgramCounter += 2;
             break;
         case 0x5D: // EOR X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
@@ -1328,8 +1831,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0x64: // NOP Zero Page
+            ReadOperands_ZeroPageAddressed();
+            OpenBus = Read(addressBus);
             Cycles = 3;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0x65: // ADC Zero Page
             ReadOperands_ZeroPageAddressed();
@@ -1428,8 +1933,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0x74: // NOP X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0x75: // ADC X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
@@ -1448,6 +1955,7 @@ void Emulate_CPU() {
             break;
         case 0x78: // SEI
             Flags.InterruptDisable = true;
+//            printf(" SEI\n");
             Cycles = 2;
             break;
         case 0x79: // ADC Y-Indexed Absolute
@@ -1464,8 +1972,10 @@ void Emulate_CPU() {
             Cycles = 7;
             break;
         case 0x7C: // NOP X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter += 2;
+            // ProgramCounter += 2;
             break;
         case 0x7D: // ADC X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
@@ -1483,6 +1993,7 @@ void Emulate_CPU() {
             Cycles = 7;
             break;
         case 0x80: // NOP Immediate
+            OpenBus = Read(ProgramCounter);
             Cycles = 2;
             ProgramCounter++;
             break;
@@ -1492,6 +2003,7 @@ void Emulate_CPU() {
             Cycles = 6;
             break;
         case 0x82: // NOP Immediate
+            OpenBus = Read(ProgramCounter);
             Cycles = 2;
             ProgramCounter++;
             break;
@@ -1527,6 +2039,7 @@ void Emulate_CPU() {
             Cycles = 2;
             break;
         case 0x89: // NOP Immediate
+            OpenBus = Read(ProgramCounter);
             Cycles = 2;
             ProgramCounter++;
             break;
@@ -1843,6 +2356,7 @@ void Emulate_CPU() {
             Cycles = 6;
             break;
         case 0xC2: // NOP Immediate
+            OpenBus = Read(ProgramCounter);
             Cycles = 2;
             ProgramCounter++;
             break;
@@ -1948,8 +2462,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0xD4: // NOP X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0xD5: // CMP X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
@@ -1984,8 +2500,10 @@ void Emulate_CPU() {
             Cycles = 7;
             break;
         case 0xDC: // NOP X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter += 2;
+            // ProgramCounter += 2;
             break;
         case 0xDD: // CMP X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
@@ -2013,6 +2531,7 @@ void Emulate_CPU() {
             Cycles = 6;
             break;
         case 0xE2: // NOP Immediate
+            OpenBus = Read(ProgramCounter);
             Cycles = 2;
             ProgramCounter++;
             break;
@@ -2104,8 +2623,10 @@ void Emulate_CPU() {
             Cycles = 8;
             break;
         case 0xF4: // NOP X-Indexed Zero Page
+            ReadOperands_ZeroPageAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter++;
+            // ProgramCounter++;
             break;
         case 0xF5: // SBC X-Indexed Zero Page
             ReadOperands_ZeroPageAddressed_XIndexed();
@@ -2140,8 +2661,10 @@ void Emulate_CPU() {
             Cycles = 7;
             break;
         case 0xFC: // NOP X-Indexed Absolute
+            ReadOperands_AbsoluteAddressed_XIndexed();
+            OpenBus = Read(addressBus);
             Cycles = 4;
-            ProgramCounter += 2;
+            // ProgramCounter += 2;
             break;
         case 0xFD: // SBC X-Indexed Absolute
             ReadOperands_AbsoluteAddressed_XIndexed();
@@ -2219,7 +2742,7 @@ void SpriteEvaluation() {
         ppuSecondaryOAMAddress = 0;
         ppuSecondaryOAMFull = false;
         ppuSpriteEvaluationOAMOverflowed = false;
-        ppuScanlineContainsSpriteZero = false;
+        ppuNextScanlineContainsSpriteZero = false;
     }
     else if (ppuDot > 64 && ppuDot <= 256) {
         if ((ppuDot & 1) == 1) {
@@ -2235,7 +2758,8 @@ void SpriteEvaluation() {
                             ppuSecondaryOAMAddress++;
                             ppuOAMAddress++;
                             if (ppuDot == 66) {
-                                ppuScanlineContainsSpriteZero = true;
+                                ppuNextScanlineContainsSpriteZero = true;
+                                // printf("0");
                             }
                         } else {
                             PPUSTATUS.SpriteOverflow = true;
@@ -2261,6 +2785,7 @@ void SpriteEvaluation() {
     }
     else if (ppuDot > 256 && ppuDot <= 320) {
         ppuOAMAddress = 0;
+        ppuCurrentScanlineContainsSpriteZero = ppuNextScanlineContainsSpriteZero;;
         if (ppuDot == 257) {
             ppuSecondaryOAMSize = ppuSecondaryOAMAddress;
             ppuSecondaryOAMAddress = 0;
@@ -2319,7 +2844,7 @@ void SpriteEvaluation() {
         ppuSpriteEvalTick &= 7;
     }
 }
-
+#ifndef NES_FAST
 void Emulate_PPU() {
 
     if (ppuDot == 1 && ppuScanline == 241) {
@@ -2463,9 +2988,12 @@ void Emulate_PPU() {
                     continue;
                 }
                 if (SpritePalLow != 0) {
-                    if (i == 0 && ppuScanlineContainsSpriteZero && PalLow != 0 && PPUMASK.EnableBackground && ppuDot < 256) {
+                    if (i == 0 && ppuCurrentScanlineContainsSpriteZero && PalLow != 0 && PPUMASK.EnableBackground && ppuDot < 256) {
                         PPUSTATUS.Sprite0Hit = true;
-                        // printf(" %d H ", ppuScanline);
+//                        EventBuffer[ppuScanline][ppuDot][0] = 0x00;
+//                        EventBuffer[ppuScanline][ppuDot][1] = 0xFF;
+//                        EventBuffer[ppuScanline][ppuDot][2] = 0xFF;
+                        // printf(" Sprite 0 Hit line: %d dot: %d\n", ppuScanline, ppuDot);
                     }
                     break;
                 }
@@ -2486,28 +3014,387 @@ void Emulate_PPU() {
     }
 
     ppuDot++;
-    if (ppuDot > 341) {
+    if (ppuDot >= 341) {
         ppuDot = 0;
         ppuScanline++;
-        if (ppuScanline > 261) {
+        if (ppuScanline > 261) { // NTSC
             ppuScanline = 0;
         }
     }
 }
+#endif
 
+void PPUFAST_IncrementScrollY() {
+    if ((VRAMAddress & 0x7000) != 0x7000) {
+        VRAMAddress += 0x1000;
+    } else {
+        VRAMAddress &= 0x0FFF;
+        uint16_t y = (VRAMAddress & 0x03E0) >> 5;
+        if (y == 29) {
+            y = 0;
+            VRAMAddress ^= 0x0800;
+        } else {
+            y++;
+            y &= 0x1F;
+        }
+        VRAMAddress = (uint16_t)((VRAMAddress & 0xFC1F) | (y << 5));
+    }
+}
+
+void PPUFAST_ResetXScroll() {
+    VRAMAddress = (uint16_t)((VRAMAddress & 0b0111101111100000) | (TransferAddress & 0b0000010000011111));
+}
+
+void PPUFAST_ResetYScroll() {
+    VRAMAddress = (uint16_t)((VRAMAddress & 0b0000010000011111) | (TransferAddress & 0b0111101111100000));
+}
+
+uint16_t GetSpriteFastPatternAddress(uint8_t SecondaryOAMSlot) {
+    if (!PPUCTRL.SpriteSize) {
+        if (((ppu_SpriteAttribute[SecondaryOAMSlot] >> 7) & 1) == 0) {
+            return (uint16_t)((PPUCTRL.SpriteTable ? 0x1000 : 0) + (ppu_SpritePattern[SecondaryOAMSlot] << 4) + (ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot]));
+        } else {
+            return (uint16_t)((PPUCTRL.SpriteTable ? 0x1000 : 0) + (ppu_SpritePattern[SecondaryOAMSlot] << 4) + ((7 - (ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot])) & 7));
+        }
+    } else {
+        if (((ppu_SpriteAttribute[SecondaryOAMSlot] >> 7) & 1) == 0) {
+            if ((ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot]) < 8) {
+                return (uint16_t)((((ppu_SpritePattern[SecondaryOAMSlot] & 1) == 1) ? 0x1000 : 0) | ((ppu_SpritePattern[SecondaryOAMSlot] & 0xFE) << 4) + (ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot]));
+            } else {
+                return (uint16_t)((((ppu_SpritePattern[SecondaryOAMSlot] & 1) == 1) ? 0x1000 : 0) | (((ppu_SpritePattern[SecondaryOAMSlot] & 0xFE) << 4) + 16) + ((ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot]) & 7));
+            }
+        } else {
+            if ((ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot]) < 8) {
+                return (uint16_t)((((ppu_SpritePattern[SecondaryOAMSlot] & 1) == 1) ? 0x1000 : 0) | (((ppu_SpritePattern[SecondaryOAMSlot] & 0xFE) << 4) + 16) - ((ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot]) & 7) + 7);
+            } else {
+                return (uint16_t)((((ppu_SpritePattern[SecondaryOAMSlot] & 1) == 1) ? 0x1000 : 0) | (((ppu_SpritePattern[SecondaryOAMSlot] & 0xFE) << 4) + 7) - ((ppuFastScanline - ppu_SpriteYposition[SecondaryOAMSlot]) & 7));
+            }
+        }
+    }
+}
+
+void SpriteFastEvaluation() {
+    if (ppuDot == 0) {
+        memset(SecondaryOAM, 0xFF, sizeof(SecondaryOAM));
+        ppuSecondaryOAMAddress = 0;
+        ppuSecondaryOAMFull = false;
+        ppuSpriteEvaluationOAMOverflowed = false;
+        ppuNextScanlineContainsSpriteZero = false;
+    }
+    else if (ppuDot > 64 && ppuDot <= 256) {
+        if ((ppuDot & 1) == 1) {
+            ppuSpriteEvalTemp = OAM[ppuOAMAddress];
+        } else {
+            if (!ppuSpriteEvaluationOAMOverflowed) {
+                if (!ppuSecondaryOAMFull) {
+                    SecondaryOAM[ppuSecondaryOAMAddress] = ppuSpriteEvalTemp;
+                }
+                if (ppuSpriteEvalTick == 0) {
+                    if (((ppuScanline - ppuSpriteEvalTemp) >= 0) && ((ppuScanline - ppuSpriteEvalTemp) < (PPUCTRL.SpriteSize ? 16 : 8))) {
+                        if (!ppuSecondaryOAMFull) {
+                            ppuSecondaryOAMAddress++;
+                            ppuOAMAddress++;
+                            if (ppuDot == 66) {
+                                ppuNextScanlineContainsSpriteZero = true;
+                                // printf("0");
+                            }
+                        } else {
+                            PPUSTATUS.SpriteOverflow = true;
+                        }
+                        ppuSpriteEvalTick++;
+                    } else {
+                        ppuOAMAddress += 4;
+                    }
+                } else {
+                    ppuSecondaryOAMAddress++;
+                    ppuOAMAddress++;
+                    if (ppuSecondaryOAMAddress == 0x20) {
+                        ppuSecondaryOAMFull = true;
+                    }
+                    ppuSpriteEvalTick++;
+                    ppuSpriteEvalTick &= 3;
+                }
+                if (ppuOAMAddress == 0) {
+                    ppuSpriteEvaluationOAMOverflowed = true;
+                }
+            }
+        }
+    }
+    else if (ppuDot > 256 && ppuDot <= 320) {
+        ppuOAMAddress = 0;
+        ppuCurrentScanlineContainsSpriteZero = ppuNextScanlineContainsSpriteZero;;
+        if (ppuDot == 257) {
+            ppuSecondaryOAMSize = ppuSecondaryOAMAddress;
+            ppuSecondaryOAMAddress = 0;
+            ppuSpriteEvalTick = 0;
+        }
+
+        switch (ppuSpriteEvalTick) {
+            case 0:
+                ppu_SpriteYposition[ppuSecondaryOAMAddress / 4] = SecondaryOAM[ppuSecondaryOAMAddress];
+                ppuSecondaryOAMAddress++;
+                break;
+            case 1:
+                ppu_SpritePattern[ppuSecondaryOAMAddress / 4] = SecondaryOAM[ppuSecondaryOAMAddress];
+                ppuSecondaryOAMAddress++;
+                break;
+            case 2:
+                ppu_SpriteAttribute[ppuSecondaryOAMAddress / 4] = SecondaryOAM[ppuSecondaryOAMAddress];
+                ppuSecondaryOAMAddress++;
+                break;
+            case 3:
+                ppu_SpriteXposition[ppuSecondaryOAMAddress / 4] = SecondaryOAM[ppuSecondaryOAMAddress];
+                break;
+            case 4:
+                ppuAddressBus = GetSpriteFastPatternAddress(ppuSecondaryOAMAddress / 4); // TODO: Na pewno?
+                break;
+            case 5:
+                ppuSpriteEvalTemp = ReadPPU(ppuAddressBus);
+                if (ppuScanline == 261) {
+                    ppuSpriteEvalTemp = 0;
+                }
+                if (((ppu_SpriteAttribute[ppuSecondaryOAMAddress / 4] >> 6) & 1) == 1) {
+                    ppuSpriteEvalTemp = (uint8_t)(((ppuSpriteEvalTemp & 0xF0) >> 4) | ((ppuSpriteEvalTemp & 0x0F) << 4));
+                    ppuSpriteEvalTemp = (uint8_t)(((ppuSpriteEvalTemp & 0xCC) >> 2) | ((ppuSpriteEvalTemp & 0x33) << 2));
+                    ppuSpriteEvalTemp = (uint8_t)(((ppuSpriteEvalTemp & 0xAA) >> 1) | ((ppuSpriteEvalTemp & 0x55) << 1));
+                }
+                ppu_SpriteShiftRegisterL[ppuSecondaryOAMAddress / 4] = ppuSpriteEvalTemp;
+                break;
+            case 6:
+                ppuAddressBus += 8;
+                break;
+            case 7:
+                ppuSpriteEvalTemp = ReadPPU(ppuAddressBus);
+                if (ppuScanline == 261) {
+                    ppuSpriteEvalTemp = 0;
+                }
+                if (((ppu_SpriteAttribute[ppuSecondaryOAMAddress / 4] >> 6) & 1) == 1) {
+                    ppuSpriteEvalTemp = (uint8_t)(((ppuSpriteEvalTemp & 0xF0) >> 4) | ((ppuSpriteEvalTemp & 0x0F) << 4));
+                    ppuSpriteEvalTemp = (uint8_t)(((ppuSpriteEvalTemp & 0xCC) >> 2) | ((ppuSpriteEvalTemp & 0x33) << 2));
+                    ppuSpriteEvalTemp = (uint8_t)(((ppuSpriteEvalTemp & 0xAA) >> 1) | ((ppuSpriteEvalTemp & 0x55) << 1));
+                }
+                ppu_SpriteShiftRegisterH[ppuSecondaryOAMAddress / 4] = ppuSpriteEvalTemp;
+                ppuSecondaryOAMAddress++;
+                break;
+        }
+        ppuSpriteEvalTick++;
+        ppuSpriteEvalTick &= 7;
+    }
+}
+
+void Emulate_PPU_Fast() {
+    while (Cycles >= 4) {
+        Cycles -= 4;
+
+        if (ppuFastDot == 0 && ppuFastScanline == 241) {
+            PPUSTATUS.VBlank = true;
+            DrawNewFrame = true;
+        }
+
+        if (ppuFastDot == 0 && ppuFastScanline == 261) {
+            PPUSTATUS.VBlank = false;
+            PPUSTATUS.SpriteOverflow = false;
+            PPUSTATUS.Sprite0Hit = false;
+        }
+
+        if (((ppuFastScanline < 240) || (ppuFastScanline == 261)) && (PPUMASK.EnableBackground || PPUMASK.EnableSprites)) {
+            SpriteFastEvaluation();
+        }
+
+        if ((ppuFastScanline < 240) || (ppuFastScanline == 261)) {
+            if (PPUMASK.EnableBackground || PPUMASK.EnableSprites) {
+                if (ppuFastDot <= 63) {
+                    for (uint8_t i = 0; i < 8; i++) {
+                        if (ppu_SpriteXposition[i] > 0) {
+                            ppu_SpriteXposition[i] -= 4;
+                        } else {
+                            ppu_SpriteShiftRegisterL[i] = (uint8_t)(ppu_SpriteShiftRegisterL[i] << 4);
+                            ppu_SpriteShiftRegisterH[i] = (uint8_t)(ppu_SpriteShiftRegisterH[i] << 4);
+                        }
+                    }
+                }
+                if ((ppuFastDot <= 63) || (ppuFastDot > 80 && ppuFastDot <= 84)) {
+                    if (PPUMASK.EnableBackground) {
+                        ppuShiftRegister_patternL = (uint16_t)(ppuShiftRegister_patternL << 4);
+                        ppuShiftRegister_patternH = (uint16_t)(ppuShiftRegister_patternH << 4);
+                        ppuShiftRegister_attributeL = (uint16_t)(ppuShiftRegister_attributeL << 4);
+                        ppuShiftRegister_attributeH = (uint16_t)(ppuShiftRegister_attributeH << 4);
+
+                        uint8_t cycleTick = (uint8_t)(ppuFastDot & 1);
+                        switch (cycleTick) {
+                            case 0:
+                                ppuShiftRegister_patternL = (uint16_t)((ppuShiftRegister_patternL & 0xFF00) | ppu8Step_patternLowBitPlane);
+                                ppuShiftRegister_patternH = (uint16_t)((ppuShiftRegister_patternH & 0xFF00) | ppu8Step_patternHighBitPlane);
+                                // if (ppu8Step_patternHighBitPlane > 0) printf("%x %x ", ppu8Step_patternLowBitPlane, ppu8Step_patternHighBitPlane);
+                                ppuShiftRegister_attributeL = (uint16_t)((ppuShiftRegister_attributeL & 0xFF00) | ((ppu8Step_attribute & 1) == 1 ? 0xFF : 0));
+                                ppuShiftRegister_attributeH = (uint16_t)((ppuShiftRegister_attributeH & 0xFF00) | ((ppu8Step_attribute & 2) == 2 ? 0xFF : 0));
+                                ppuAddressBus = (uint16_t)(0x2000 + (VRAMAddress & 0x0FFF));
+                                ppu8Step_temp = ReadPPU(ppuAddressBus);
+
+                                ppu8Step_NextCharacter = ppu8Step_temp;
+
+                                ppuAddressBus = (uint16_t)(0x23C0 | (VRAMAddress & 0x0C00) | ((VRAMAddress >> 4) & 0x38) | ((VRAMAddress >> 2) & 0x07));
+                                ppu8Step_temp = ReadPPU(ppuAddressBus);
+
+                                ppu8Step_attribute = ppu8Step_temp;
+                                if ((VRAMAddress & 3) >= 2) {
+                                    ppu8Step_attribute = (uint8_t)(ppu8Step_attribute >> 2);
+                                }
+                                if ((((VRAMAddress & 0b0000001111100000) >> 5) & 3) >= 2) {
+                                    ppu8Step_attribute = (uint8_t)(ppu8Step_attribute >> 4);
+                                }
+                                ppu8Step_attribute = (uint8_t)(ppu8Step_attribute & 3);
+                                break;
+                            case 1:
+                                ppuAddressBus = (uint16_t)(((VRAMAddress & 0b0111000000000000) >> 12) | ppu8Step_NextCharacter * 16 | (PPUCTRL.BackgroundTable ? 0x1000 : 0));
+                                ppu8Step_temp = ReadPPU(ppuAddressBus);
+
+                                ppu8Step_patternLowBitPlane = ppu8Step_temp;
+                                ppuAddressBus += 8;
+
+                                ppu8Step_temp = ReadPPU(ppuAddressBus);
+                                // if (ppu8Step_temp > 0) printf("%x %x ", ppu8Step_patternLowBitPlane, ppu8Step_patternHighBitPlane);
+                                // printf("%x ", ppuAddressBus);
+
+                                ppu8Step_patternHighBitPlane = ppu8Step_temp;
+                                // if (ppu8Step_temp > 0) printf("%x %x ", ppu8Step_patternLowBitPlane, ppu8Step_patternHighBitPlane);
+                                // printf("7");
+                                if ((VRAMAddress & 0x001F) == 31) {
+                                    VRAMAddress &= 0xFFE0;
+                                    VRAMAddress ^= 0x0400;
+                                } else {
+                                    VRAMAddress++;
+                                }
+                                break;
+                        }
+                    }
+                }
+                if (ppuFastDot == 63) {
+                    PPU_IncrementScrollY();
+                }
+                else if (ppuFastDot == 64) {
+                    PPU_ResetXScroll();
+                }
+                if (ppuFastDot >= 70 && ppuFastDot <= 76 && ppuFastScanline == 261) {
+                    PPU_ResetYScroll();
+                }
+            }
+        }
+
+        if (ppuFastScanline < 241 && ppuFastDot < 64) {
+            uint8_t PalHi = 0;
+            uint8_t PalLow = 0;
+            if (PPUMASK.EnableBackground && (ppuFastDot >= 2 || PPUMASK.ShowBackgroundColumn)) {
+                uint8_t col0 = (uint8_t)((ppuShiftRegister_patternL >> (15 - ppuScrollFineX)) & 1);
+                uint8_t col1 = (uint8_t)((ppuShiftRegister_patternH >> (15 - ppuScrollFineX)) & 1);
+                PalLow = (uint8_t)((col1 << 1) | col0);
+
+                // if (ppuShiftRegister_patternH > 0) printf("%x %x ", ppuShiftRegister_patternL, ppuShiftRegister_patternH);
+
+                uint8_t pal0 = (uint8_t)((ppuShiftRegister_attributeL >> (15 - ppuScrollFineX)) & 1);
+                uint8_t pal1 = (uint8_t)((ppuShiftRegister_attributeH >> (15 - ppuScrollFineX)) & 1);
+                PalHi = (uint8_t)((pal1 << 1) | pal0);
+
+                if (PalLow == 0 && PalHi != 0) {
+                    PalHi = 0;
+                }
+            }
+
+            uint8_t SpritePalHi = 0;
+            uint8_t SpritePalLow = 0;
+            bool SpritePriority = false;
+            if (PPUMASK.EnableSprites && (ppuFastDot >= 2 || PPUMASK.ShowSpriteColumn)) {
+                for (uint8_t i = 0; i < 8; i++) {
+                    if ((ppu_SpriteXposition[i] <= 0) && (i < (ppuSecondaryOAMSize / 4))) {
+                        bool SpixelL = (ppu_SpriteShiftRegisterL[i] & 0x80) != 0;
+                        bool SpixelH = (ppu_SpriteShiftRegisterH[i] & 0x80) != 0;
+                        SpritePalLow = 0;
+                        if (SpixelL) SpritePalLow = 1;
+                        if (SpixelH) SpritePalLow |= 2;
+
+                        SpritePalHi = (uint8_t)((ppu_SpriteAttribute[i] & 0x03) | 0x04);
+                        SpritePriority = ((ppu_SpriteAttribute[i] >> 5) & 1) == 0;
+                    } else {
+                        continue;
+                    }
+                    if (SpritePalLow != 0) {
+                        if (i == 0 && ppuCurrentScanlineContainsSpriteZero && PalLow != 0 && PPUMASK.EnableBackground) {
+                            PPUSTATUS.Sprite0Hit = true;
+//                            EventBuffer[ppuFastScanline][ppuFastDot][0] = 0x00;
+//                            EventBuffer[ppuFastScanline][ppuFastDot][1] = 0xFF;
+//                            EventBuffer[ppuFastScanline][ppuFastDot][2] = 0xFF;
+                            // printf(" Sprite 0 Hit line: %d dot: %d\n", ppuFastScanline, ppuFastDot);
+                        }
+                        break;
+                    }
+                }
+            }
+
+            if ((SpritePriority && SpritePalLow != 0) || PalLow == 0) {
+                PalLow = SpritePalLow;
+                PalHi = SpritePalHi;
+                if (PalLow == 0) PalHi = 0;
+            }
+
+            uint16_t *PixelOut = NESBufferFast[ppuFastScanline >> 3][ppuFastDot];
+            const uint8_t *Color = Palette[PaletteRAM[PalLow + PalHi * 4]];
+            PixelOut[0] += Color[0];
+            PixelOut[1] += Color[1];
+            PixelOut[2] += Color[2];
+        }
+
+        ppuFastDot++;
+        if (ppuFastDot > 85) { // 85 x 4 = 340
+            ppuFastDot = 0;
+            ppuFastScanline++;
+            if (ppuFastScanline > 261) { // NTSC
+            // if (ppuFastScanline > 33) { // 33 x 8 = 264 ~ NTSC
+                ppuFastScanline = 0;
+            }
+        }
+    }
+    CyclesLeft = Cycles;
+}
+
+#ifndef NES_FAST
 void NES_Run() {
 	// tempTime = HAL_GetTick();
     Emulate_CPU();
     // tempTime2 = HAL_GetTick();
     // CPU_Time += tempTime2 - tempTime;
     // tempTime2 = HAL_GetTick();
+    // Cycles = Cycles + AddOAMCycles + AddDMCCycles;
+    Cycles = Cycles + AddOAMCycles;
+    AddOAMCycles = 0;
+    // AddDMCCycles = 0;
     while (Cycles > 0) {
         Cycles--;
-        Emulate_PPU();
-        Emulate_PPU();
-        Emulate_PPU();
 
+        AddAlignmentCycle = !AddAlignmentCycle;
+
+        Emulate_APU();
+
+        Emulate_PPU();
+        Emulate_PPU();
+        Emulate_PPU();
     }
+    // tempTime = HAL_GetTick();
+    // PPU_Time += tempTime - tempTime2;
+}
+#endif
+
+void NES_Run_Fast() {
+    // tempTime = HAL_GetTick();
+    Emulate_CPU();
+    // tempTime2 = HAL_GetTick();
+    // CPU_Time += tempTime2 - tempTime;
+    // tempTime2 = HAL_GetTick();
+    // Cycles = Cycles + AddOAMCycles + AddDMCCycles;
+    Cycles = Cycles + AddOAMCycles + CyclesLeft;
+    AddOAMCycles = 0;
+    // AddDMCCycles = 0;
+    // Emulate_APU_Fast();
+    Emulate_PPU_Fast();
     // tempTime = HAL_GetTick();
     // PPU_Time += tempTime - tempTime2;
 }
@@ -2532,14 +3419,19 @@ void NES_Logic(void) {
 //		tempTime = HAL_GetTick();
 //		Logic_Time += tempTime - tempTime2;
 		while (DrawNewFrame == false) {
-			NES_Run();
+//			NES_Run();
+			NES_Run_Fast();
 		}
+		// while (DrawNewFrame == false) {
+  //           NES_Run_Fast();
+  //       }
 //		tempTime = HAL_GetTick();
 //		if (DrawNewFrame == true) {
 			DrawNewFrame = false;
 //			tempTime = HAL_GetTick();
 			if (HUB75_StartDrawing()) {
-				NES_PrepareDisplay();
+//				NES_PrepareDisplay();
+				NES_PrepareDisplayFast();
 //				DrawEmblem();
 //				HUB75_StopDrawing();
 			}
@@ -2564,7 +3456,8 @@ int main() {
     // printf("\n");
     // printf("%x\n", CHRData[0]);
     while(1) {
-        NES_Run();
+        // NES_Run();
+        NES_Run_Fast();
         // if (PPUSTATUS.VBlank == true && ppuScanline == 241 && ppuDot < 50) {
         // if (opcode == 0x02) {
         // printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
@@ -2572,28 +3465,126 @@ int main() {
         // getc(stdin);
         if (DrawNewFrame == true) {
             DrawNewFrame = false;
+            // SaveNESBufferBMPNumbered("output/nesbuffer", frameCounter);
+            // SaveMergedBufferBMPNumbered("output/nesbuffer", frameCounter);
             frameCounter++;
-            if (frameCounter == 50) Controller1Buttons = 0b00001000;
-            if (frameCounter == 60) Controller1Buttons = 0b00000000;
-            if (frameCounter % 3000 == 0) {
+                if (frameCounter == 150) Controller1Buttons = 0b00001000; // START
+                if (frameCounter == 160) Controller1Buttons = 0b00000000;
+
+                // if (frameCounter == 50) Controller1Buttons = 0b01000000; // LEFT
+                // if (frameCounter == 60) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 70) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 80) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 90) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 100) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 110) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 120) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 130) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 140) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 150) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 160) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 170) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 180) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 190) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 200) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 210) Controller1Buttons = 0b01000000;
+                // if (frameCounter == 220) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 250) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 260) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 270) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 280) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 290) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 300) Controller1Buttons = 0b00000000;
+
+                // if (frameCounter == 130) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 140) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 150) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 160) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 170) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 180) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 190) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 200) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 210) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 220) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 230) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 240) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 250) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 260) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 270) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 280) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 290) Controller1Buttons = 0b00100000;
+                // if (frameCounter == 300) Controller1Buttons = 0b00000000;
+
+                // if (frameCounter == 50) Controller1Buttons = 0b01000000; // LEFT
+                // if (frameCounter == 60) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 70) Controller1Buttons = 0b01000000; // LEFT
+                // if (frameCounter == 80) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 90) Controller1Buttons = 0b00100000; // DOWN
+                // if (frameCounter == 100) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 110) Controller1Buttons = 0b00100000; // DOWN
+                // if (frameCounter == 120) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 130) Controller1Buttons = 0b00100000; // DOWN
+                // if (frameCounter == 140) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 150) Controller1Buttons = 0b00000010; // B (SKIP)
+                // if (frameCounter == 160) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 170) Controller1Buttons = 0b00010000; // UP
+                // if (frameCounter == 180) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 190) Controller1Buttons = 0b00010000; // UP
+                // if (frameCounter == 200) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 210) Controller1Buttons = 0b00010000; // UP
+                // if (frameCounter == 220) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 230) Controller1Buttons = 0b00001000; // START
+                // if (frameCounter == 240) Controller1Buttons = 0b00000000;
+
+                // if (frameCounter == 310) Controller1Buttons = 0b00000001; // A (RUN)
+                // if (frameCounter == 320) Controller1Buttons = 0b00000000;
+                // if (frameCounter == 310) Controller1Buttons = 0b00000010; // B (SKIP)
+                // if (frameCounter == 320) Controller1Buttons = 0b00000000;
+            if (true) {
+            // if (frameCounter % 10 == 0) {
+            // if (frameCounter % 100 == 0) {
             // if (frameCounter % 1000 == 0) {
+            // if (frameCounter % 6000 == 0) {
+            // if (frameCounter % 10000 == 0) {
+            // if (frameCounter % 100000 == 0) {
+            // if (frameCounter >= 4301) {
+            // if (frameCounter >= 5000) {
             // if (true) {
                 // NES_DebugVRAM();
-                SaveNESBufferBMP("nesbuffer.bmp");
-                NES_PrepareDisplay();
+                // SaveNESBufferBMP("nesbuffer.bmp");
+                // NES_PrepareDisplay();
+                NES_PrepareDisplayFast();
                 SaveDisplayBufferBMP("displaybuffer.bmp");
+                SaveEventBufferBMP("eventbuffer.bmp");
+                SaveMergedBufferBMP("eventbuffermerged.bmp");
                 NES_DebugVRAM();
                 SaveNESBufferBMP("vrambuffer.bmp");
-                printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
-                fflush(stdin);
-                getc(stdin);
+                // memset(EventBuffer, 0x00, sizeof(EventBuffer));
+//                printf("BytesRemaining: %x\tAPUSTATUS: %x\tSampleLength: %x\tCycleCount: %x\tDMCFLAGS: %x\n", APUDMC_BytesRemaining, APUSTATUS, DMCSampleLength, DMCCycleCount, DMCFLAGS);
+//                printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
+//                fflush(stdin);
+//                getc(stdin);
             }
+            memset(EventBuffer, 0x00, sizeof(EventBuffer));
+            // if (frameCounter >= 2897) {
+            //     SaveNESBufferBMP("nesbuffer.bmp");
+            //     NES_PrepareDisplay();
+            //     SaveDisplayBufferBMP("displaybuffer.bmp");
+            //     NES_DebugVRAM();
+            //     SaveNESBufferBMP("vrambuffer.bmp");
+            // }
         }
-        if (frameCounter > 3000) {
-            printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
-            fflush(stdin);
-            getc(stdin);
-        }
+        // printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d\n", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
+        // if (frameCounter == 2897) {
+        //     printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d\n", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
+        //     // fflush(stdin);
+        //     // getc(stdin);
+        // }
+        // if (frameCounter > 2897) {
+        //     printf("$%x\t%x\t%s\t%x\tA: %x\tX: %x\tY: %x\tFlags: %x\tSP: %x\tPPUSTATUS: %x\tframe: %d", ProgramCounter, opcode, opnames[opcode], addressBus, NES_A, NES_X, NES_Y, Flags.Raw, StackPointer, PPUSTATUS.Raw, frameCounter);
+        //     fflush(stdin);
+        //     getc(stdin);
+        // }
     }
     return 0;
 }

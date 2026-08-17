@@ -9,6 +9,7 @@
 #define INC_NES_H_
 
 //#define PC_DEBUG
+#define NES_FAST
 
 #ifdef PC_DEBUG
 #include <stdio.h>
